@@ -1,0 +1,1264 @@
+#!/bin/bash
+
+#
+# Essentials
+
+SCRIPT_NAME=$(basename $0)
+
+RED_TEXT='\e[0;31m'
+NO_STYLE_TEXT='\e[0m'
+ERROR_PREFIX="$SCRIPT_NAME"' error:'
+
+
+printf-stderr()
+{
+	printf "$@" >&2
+}
+
+
+printf-error()
+{
+	printf-stderr "$ERROR_PREFIX"
+	printf-stderr " $@"
+	printf-stderr '\n\n'
+}
+
+
+printf-message()
+{
+	printf "$@"
+	printf '\n'
+}
+
+
+if [ -t 1 ] && [ $(tput colors) \> 0 ]
+then
+	ERROR_PREFIX="$RED_TEXT$ERROR_PREFIX$NO_STYLE_TEXT"
+fi
+
+
+PROJECT_PATH="$PWD"
+WORKSPACE_PROJECT_PATHS_FILE_NAME=".workspace-project-paths"
+WORKSPACE_PROJECT_LIST_FILE_NAME=".workspace-project-list"
+WORKSPACE_BRANCH_LIST_FILE_NAME=".workspace-branch-list"
+WORKSPACE_PROJECT_PATHS_PATH="$PROJECT_PATH/$WORKSPACE_PROJECT_PATHS_FILE_NAME"
+WORKSPACE_PROJECT_LIST_PATH="$PROJECT_PATH/$WORKSPACE_PROJECT_LIST_FILE_NAME"
+WORKSPACE_BRANCH_LIST_PATH="$PROJECT_PATH/$WORKSPACE_BRANCH_LIST_FILE_NAME"
+SCRIPT_COMMANDS=('status' 'git' 'foreach' 'open' 'cache-workspace-info' 'install-completion-script')
+
+HELP_MESSAGE=\
+"Do various stuff with multiple projects.
+
+\e[1mUSAGE\e[0m
+    $SCRIPT_NAME status [-P <project-path>] [-u | -U] [-n] [-s | -r]
+        [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+
+    $SCRIPT_NAME git [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
+        [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+        -- <git-command>...
+
+    $SCRIPT_NAME foreach [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
+        [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+        -- <commands>...
+
+    $SCRIPT_NAME open [-P <project-path>] [-t] [-i] [-u | -U] [-n] [-s | -r]
+              [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+
+\e[1mCOMMANDS\e[0m
+    status     show git status for project.
+    git        run git command for each project.
+    foreach    run command for each project.
+    open       open projects in bash (default), Gnome-Terminal tabs or tmux
+               panels.
+
+\e[1mOPTIONS\e[0m
+    -P | --path <project-path>  Search path [default: current directory].
+    -s | --strict               Match <pattern> strictly.
+    -r | --regex                Use <pattern> as regex.
+    -n | --negate               Negate all patterns.
+    -p | --project <pattern>    Project name pattern.
+    -B | --branch <pattern>     Current branch name pattern.
+    -b | --branches <pattern>   Branch name pattern for existing branches.
+    -u | --uncommited           Match projects with uncommited changes.
+    -d | --ignore-detached      Do not match projects with detached HEAD.
+    -t | --tabs                 Open projects in Gnome Terminal tabs.
+    -x | --tmux                 Open projects in tmux panels.
+    -i | --interactive          Chose projects to do your stuff with.
+    -h | --help                 Show this message.
+
+\e[1mADDITIONAL COMMANDS\e[0m
+    install-completion-script    Install bash completion script for project and
+                                 branch names.
+    cache-workspace-info         Cache project paths and store project and
+                                 branch names for completion script.
+
+\e[1mNOTES\e[0m
+    Project name is the name of the folder that is parent to '.git' folder.
+
+    If no '-s' or '-r' option is set, then <pattern> is searched as a part of
+    a project/branch name.
+
+    Use quotes for '|', ';', '&&' and '||' inside <commands> for 'foreach'.
+
+    If any <command> in 'git' or 'foreach' failes during run, then script will
+    prompt to open that project in bash to deal with issue manually.
+
+\e[1mEXAMPLES\e[0m
+    Get git status for all projects that contain 'feature' in any of their
+    existing branch names (-b).
+    \e[1m$ $SCRIPT_NAME status -b feature\e[0m
+
+    Checkout to branch 'master' each project, that is not (-n) on 'master'
+    branch (-B).
+    \e[1m$ $SCRIPT_NAME git -nB master -- checkout master\e[0m
+
+    Commit changes for each project, that has uncommited changes (-u) and
+    contains 'feature/some' in it's current branch name (-B).
+    \e[1m$ $SCRIPT_NAME foreach -u -B feature/some -- git add . '&&' git commit\e[0m
+
+    Open in tmux panels (-x) projects, that contain 'feature' in their current
+    branch name (-b).
+    \e[1m$ $SCRIPT_NAME open -x -b feature\e[0m
+"
+
+BASH_COMPLETION_SCRIPT=\
+'#!/bin/bash
+
+WORKSPACE_PROJECT_LIST_FILE_NAME='"$WORKSPACE_PROJECT_LIST_FILE_NAME"'
+WORKSPACE_BRANCH_LIST_FILE_NAME='"$WORKSPACE_BRANCH_LIST_FILE_NAME"'
+
+
+_workspace-completion-is-short-option()
+{
+	local string=$1
+
+	[ "${string:0:1}" == "-" ] && [ "${string:1:1}" != "-" ]
+}
+
+
+_workspace-completion()
+{
+	if [ $COMP_CWORD == 1 ]
+	then
+		COMPREPLY=($(compgen -W "status git foreach open cache-workspace-info install-completion-script" "${COMP_WORDS[1]}"))
+		return
+	fi
+
+	local argument="${COMP_WORDS[$COMP_CWORD-1]}"
+
+	if ([ "$argument" == "--project" ] \
+		|| (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "p" ])) \
+		&& [ -f "$WORKSPACE_PROJECT_LIST_FILE_NAME" ]
+	then
+		local projects=$(cat "$WORKSPACE_PROJECT_LIST_FILE_NAME")
+		COMPREPLY=($(compgen -W "$projects" "${COMP_WORDS[$COMP_CWORD]}"))
+		return
+	fi
+
+	if ([ "$argument" == "--branch" ] || [ "$argument" == "--branches" ] \
+		|| (_workspace-completion-is-short-option "$argument" && ([ "${argument: -1}" == "B" ] || [ "${argument: -1}" == "b" ]))) \
+		&& [ -f "$WORKSPACE_BRANCH_LIST_FILE_NAME" ]
+	then
+		local branches=$(cat "$WORKSPACE_BRANCH_LIST_FILE_NAME")
+		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
+		return
+	fi
+}
+
+complete -F _workspace-completion '"$SCRIPT_NAME"
+
+
+declare -a MATCHERS
+REPOSITORY_FILTER_BRANCHES_FUNCTION=repository-branch-names
+MATCH_PATTERN_FUNCTION=inclusion-match
+CONDITION_PREFIX_FUNCTION=straight
+PROJECT_NAME_PATTERN=''
+BRANCH_NAME_PATTERN=''
+PROMPT_TO_USE_REPOSITORY_FUNCTION=nothing
+OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-bash
+declare -a FOREACH_ARGUMENTS
+DO_JOB_FUNCTION=''
+
+
+#
+# Options
+
+declare -A SCRIPT_OPTIONS
+
+SCRIPT_OPTIONS[P]='set-project-path'
+SCRIPT_OPTIONS[path]='set-project-path'
+
+SCRIPT_OPTIONS[s]='set-strict-match'
+SCRIPT_OPTIONS[strict]='set-strict-match'
+
+SCRIPT_OPTIONS[r]='set-regex-match'
+SCRIPT_OPTIONS[regex]='set-regex-match'
+
+SCRIPT_OPTIONS[n]='set-negate-pattern'
+SCRIPT_OPTIONS[negate]='set-negate-pattern'
+
+SCRIPT_OPTIONS[a]='set-match-all-branches'
+SCRIPT_OPTIONS[all]='set-match-all-branches'
+
+SCRIPT_OPTIONS[u]='set-match-uncommited'
+SCRIPT_OPTIONS[unstaged]='set-match-uncommited'
+
+SCRIPT_OPTIONS[d]='set-ignore-detached'
+SCRIPT_OPTIONS[detached]='set-ignore-detached'
+
+SCRIPT_OPTIONS[p]='set-project-name-pattern'
+SCRIPT_OPTIONS[project]='set-project-name-pattern'
+
+SCRIPT_OPTIONS[B]='set-branch-name-pattern'
+SCRIPT_OPTIONS[branch]='set-branch-name-pattern'
+
+SCRIPT_OPTIONS[b]='set-branches-name-pattern'
+SCRIPT_OPTIONS[branches]='set-branches-name-pattern'
+
+SCRIPT_OPTIONS[t]='set-gnome-tabs'
+SCRIPT_OPTIONS[tabs]='set-gnome-tabs'
+
+SCRIPT_OPTIONS[x]='set-tmux'
+SCRIPT_OPTIONS[tmux]='set-tmux'
+
+SCRIPT_OPTIONS[i]='set-interactive'
+SCRIPT_OPTIONS[interactive]='set-interactive'
+
+
+OPTION_COMMAND=''
+OPTION_PROJECT_PATH=''
+OPTION_PROJECT_NAME_PATTERN=''
+OPTION_BRANCH_NAME_PATTERN=''
+OPTION_MATCH_CURRENT_BRANCH=false
+OPTION_STRICT_MATCH=false
+OPTION_REGEX_MATCH=false
+OPTION_NEGATE_PATTERN=false
+OPTION_UNCOMMITED=false
+OPTION_IGNORE_DETACHED=false
+OPTION_GNOME_TABS=false
+OPTION_TMUX=false
+OPTION_INTERACTIVE=false
+
+
+set-project-path()
+{
+	local value=$1
+
+	OPTION_PROJECT_PATH="$value"
+
+	return 1
+}
+
+
+set-project-name-pattern()
+{
+	local pattern=$1
+
+	OPTION_PROJECT_NAME_PATTERN="$pattern"
+
+	return 1
+}
+
+
+set-branch-name-pattern()
+{
+	local pattern=$1
+
+	OPTION_MATCH_CURRENT_BRANCH=true
+	OPTION_BRANCH_NAME_PATTERN="$pattern"
+
+	return 1
+}
+
+
+set-branches-name-pattern()
+{
+	local pattern=$1
+
+	OPTION_MATCH_CURRENT_BRANCH=false
+	OPTION_BRANCH_NAME_PATTERN="$pattern"
+
+	return 1
+}
+
+
+set-strict-match()
+{
+	OPTION_STRICT_MATCH=true
+}
+
+
+set-regex-match()
+{
+	OPTION_REGEX_MATCH=true
+}
+
+
+set-negate-pattern()
+{
+	OPTION_NEGATE_PATTERN=true
+}
+
+
+set-match-uncommited()
+{
+	OPTION_UNCOMMITED=true
+}
+
+
+set-ignore-detached()
+{
+	OPTION_IGNORE_DETACHED=true
+}
+
+
+set-interactive()
+{
+	OPTION_INTERACTIVE=true
+	PROMPT_TO_USE_REPOSITORY_FUNCTION=prompt-user-to-select-project-implementation
+}
+
+
+set-gnome-tabs()
+{
+	OPTION_GNOME_TABS=true
+}
+
+
+set-tmux()
+{
+	OPTION_TMUX=true
+}
+
+
+#
+# Option dependent functions
+
+match-pattern()
+{
+	"$MATCH_PATTERN_FUNCTION" "$@"
+}
+
+
+condition-prefix()
+{
+	"$CONDITION_PREFIX_FUNCTION" "$@"
+}
+
+
+repository-filter-branches()
+{
+	"$REPOSITORY_FILTER_BRANCHES_FUNCTION" "$@"
+}
+
+
+prompt-user-to-select-project()
+{
+	"$PROMPT_TO_USE_REPOSITORY_FUNCTION" "$@"
+}
+
+
+open-projects()
+{
+	"$OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION" "$@"
+}
+
+
+do-job()
+{
+	"$DO_JOB_FUNCTION" "$@"
+}
+
+
+#
+# git
+
+repository-current-branch-name()
+{
+	local path=$1
+
+	local output=$(cd "$path"; git -c color.ui=always branch | grep '^\* ')
+	printf '%s\n' "${output}"
+}
+
+
+repository-branch-names()
+{
+	local path=$1
+
+	local output=$(cd "$path"; git -c color.ui=always branch)
+	printf '%s\n' "$output"
+}
+
+
+repository-raw-branch-list()
+{
+	local path=$1
+
+	local output=$(cd "$path"; git branch | sed -e 's/* //' -e 's/  //')
+	printf '%s\n' "$output"
+}
+
+
+repository-status()
+{
+	local path=$1
+
+	local project_name=$(basename "$path")
+	local branches=$(repository-filter-branches "$path" "$BRANCH_NAME_PATTERN")
+	local status=$(cd "$path"; git -c color.ui=always status)
+
+	printf '\e[1;4m%s\e[0m\n%s\n\n%s\n' "$project_name" "$branches" "$status"
+}
+
+
+repository-has-detached-head()
+{
+	local path=$1
+
+	$(cd "$path"; git symbolic-ref HEAD > /dev/null 2>&1)
+	[ $? != 0 ]
+}
+
+
+#
+# Matcher functions
+
+straight()
+{
+	local value=$1
+
+	[ $value == 0 ]
+}
+
+
+negate()
+{
+	local value=$1
+
+	[ $value != 0 ]
+}
+
+
+inclusion-match()
+{
+	local string=$1
+	local pattern=$2
+
+	[[ $string == *$pattern* ]]
+}
+
+
+strict-match()
+{
+	local string=$1
+	local pattern=$2
+
+	[ "$string" == "$pattern" ]
+}
+
+
+regex-match()
+{
+	local string=$1
+	local pattern=$2
+
+	grep --quiet "$pattern" <<< "$string"
+}
+
+
+project-match-name()
+{
+	local project_path=$1
+	local pattern=$2
+
+	local project_name=$(basename "$project_path")
+	match-pattern "$project_name" "$pattern"
+	condition-prefix $?
+}
+
+
+project-match-branch()
+{
+	local project_path=$1
+	local pattern=$3
+
+	local listed_branches=$(repository-filter-branches "$project_path")
+	local branch_line
+	while read branch_line
+	do
+		local branch_name="${branch_line#* }"
+		if match-pattern "$branch_name" "$pattern"
+		then
+			condition-prefix 0
+			return $?
+		fi
+	done <<< "$listed_branches"
+
+	condition-prefix 1
+	return $?
+}
+
+
+project-has-uncommited-changes()
+{
+	local project_path=$1
+
+	$(cd "$project_path"; git diff-index --quiet HEAD --)
+	[ $? != 0 ]
+}
+
+
+project-do-not-match-detached-head()
+{
+	local project_path=$1
+
+	! repository-has-detached-head "$project_path"
+}
+
+
+run-matchers()
+{
+	local project_path=$1
+	local project_name_pattern=$2
+	local branch_name_pattern=$3
+	local matchers=($4)
+
+	for matcher in "${MATCHERS[@]}"
+	do
+		"$matcher" "$project_path" "$project_name_pattern" "$branch_name_pattern"
+		if [ $? != 0 ]
+		then
+			return 1
+		fi
+	done
+}
+
+
+#
+# Stuff
+
+nothing()
+{
+	:
+}
+
+
+command-exists()
+{
+	local name=$1
+
+	command -v "$name" > /dev/null 2>&1
+}
+
+
+prompt-yes-no()
+{
+	local prompt=$1
+
+	while :
+	do
+		local action
+		printf "$prompt "
+		read -n 1 action
+		printf '\n'
+		case $action in
+			y)
+				return 0
+				;;
+
+			n)
+				return 1
+				;;
+
+			*)
+				printf-message '\n\e[34mType "y" or "n"\e[0m'
+			;;
+		esac
+	done
+}
+
+
+exclusive()
+{
+	local values=("$@")
+
+	local true_count=( 0 )
+	local value
+	for value in "${values[@]}"
+	do
+		if $value
+		then
+			(( ++true_count ))
+		fi
+	done
+
+	[ $true_count -le 1 ]
+}
+
+
+normalize-path()
+{
+	local path=$1
+	printf '%s\n' $(cd "$path"; pwd)
+}
+
+
+array-contains()
+{
+	local item=$1
+	local array=("${@:2}")
+
+	local value
+	for value in "${array[@]}"
+	do
+		if [ "$value" == "$item" ]
+		then
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+
+super-user()
+{
+	[[ $EUID == 0 ]]
+}
+
+
+#
+# Jobs
+
+install-completion-script()
+{
+	if ! super-user
+	then
+		return 1
+	fi
+
+	printf '%s\n' "$BASH_COMPLETION_SCRIPT" > '/etc/bash_completion.d/workspace'
+}
+
+
+cache-workspace-info()
+{
+	# project paths
+	local git_dirs=($(find "$PROJECT_PATH" '!' -path '*attic*' -type d -name '.git'))
+	local project_paths=()
+	local git_dir
+	for git_dir in "${git_dirs[@]}"
+	do
+		project_paths+=("$(dirname "$git_dir")")
+	done
+
+	# project names and branches
+	local project_list=()
+	local branch_list=()
+	local project_path
+	for project_path in "${project_paths[@]}"
+	do
+		local project_name=$(basename "$project_path")
+		project_list+=("$project_name")
+
+		if repository-has-detached-head "$project_path"
+		then
+			continue
+		fi
+
+		local branches=($(repository-raw-branch-list "$project_path"))
+		branch_list+=("${branches[@]}")
+	done
+
+	# project name parts
+	local parts=()
+	local project_name
+	for project_name in "${project_list[@]}"
+	do
+		local tokens
+		IFS='.- ' read -ra tokens <<< "$project_name"
+		parts+=("${tokens[@]}")
+	done
+	project_list+=("${parts[@]}")
+    
+	# branch name parts
+	local parts=()
+	local branch
+	for branch in "${branch_list[@]}"
+	do
+		local tokens
+		IFS='/-' read -ra tokens <<< "$branch"
+		parts+=("${tokens[@]}")
+	done
+	branch_list+=("${parts[@]}")
+
+	printf '%s\n' "${project_paths[@]}" > "$WORKSPACE_PROJECT_PATHS_PATH"
+	printf '%s\n' "${project_list[@]}" | sort | uniq > "$WORKSPACE_PROJECT_LIST_PATH"
+	printf '%s\n' "${branch_list[@]}" | sort | uniq > "$WORKSPACE_BRANCH_LIST_PATH"
+}
+
+
+prompt-user-to-select-project-implementation()
+{
+	local project_path=$1
+	local prompt=$2
+
+	repository-status "$project_path"
+	printf '\n'
+	prompt-yes-no "\e[1;34m$prompt\e[0m"
+}
+
+
+show-help()
+{
+	printf-message "$HELP_MESSAGE"
+}
+
+
+show-repositories-status()
+{
+	local repository_paths=("$@")
+
+	local path
+	for path in "${repository_paths[@]}"
+	do
+		repository-status "$path"
+		printf '\n'
+	done
+}
+
+
+start-bash()
+{
+	local project_paths=("$@")
+
+	local gnome_terminal_options=()
+
+	local path
+	for path in "${project_paths[@]}"
+	do
+		if ! prompt-user-to-select-project "$path" 'Open this repository? (y/n)'
+		then
+			continue
+		fi
+
+		local project_name=$(basename "$path")
+		printf '\e[1;4m%s\e[0m\n' "$project_name"
+		bash -c "cd $path; bash"
+		printf '\n'
+	done
+}
+
+
+start-gnome-terminal()
+{
+	local project_paths=("$@")
+
+	local selected_paths=()
+	local path
+	for path in "${project_paths[@]}"
+	do
+		if prompt-user-to-select-project "$path" 'Open this repository? (y/n)'
+		then
+			selected_paths+=("$path")
+		fi
+	done
+
+	declare -a gnome_terminal_options
+
+	for path in "${selected_paths[@]}"
+	do
+		gnome_terminal_options+=("--tab --working-directory ${path}")
+	done
+
+	gnome-terminal ${gnome_terminal_options[@]}
+}
+
+
+start-tmux()
+{
+	local project_paths=("$@")
+
+	local session_name=$(basename "$PROJECT_PATH")
+
+	local selected_paths=()
+	local path
+	for path in "${project_paths[@]}"
+	do
+		if prompt-user-to-select-project "$path" 'Open this repository? (y/n)'
+		then
+			selected_paths+=("$path")
+		fi
+	done
+
+	tmux new-session -d -s "$session_name" -c "${selected_paths[0]}"
+
+	for path in "${selected_paths[@]:1}"
+	do
+		tmux split-window -v -p 50 -c "${path}"
+		tmux select-layout tiled
+	done
+
+	tmux -2 attach-session -t "$session_name"
+}
+
+
+foreach-project()
+{
+	local repository_paths=("$@")
+
+	local path
+	for path in "${repository_paths[@]}"
+	do
+		if $OPTION_INTERACTIVE
+		then
+			if ! prompt-user-to-select-project "$path" 'Run your command with this repository? (y/n)'
+			then
+				printf '\n'
+				continue
+			fi
+		else
+			local project_name=$(basename "$path")
+			printf '\e[1;4m%s\e[0m\n' "$project_name"
+		fi
+
+		bash -c "cd $path; ${FOREACH_ARGUMENTS[*]}"
+		if [ $? != 0 ]
+		then
+			printf '\n'
+			prompt-yes-no '\e[1;31mCommand exited with non-zero code. Do you want to open this project in bash? (y/n)\e[0m'
+			if [ $? == 0 ]
+			then
+				bash -c "cd $path; bash"
+			fi
+		fi
+
+		printf '\n'
+	done
+}
+
+
+foreach-project-git()
+{
+	FOREACH_ARGUMENTS=('git' ${FOREACH_ARGUMENTS[@]})
+	foreach-project "$@"
+}
+
+
+#
+# Parameters and options parsing/validating
+
+is-option()
+{
+	local string=$1
+
+	[ "${string:0:1}" == '-' ]
+}
+
+
+PARAM_TYPE_SHORT_OPTION_LIST=1
+PARAM_TYPE_LONG_OPTION=2
+PARAM_TYPE_DELIMITER=3
+PARAM_TYPE_BAD_PARAMETER=255
+
+check-parameter()
+{
+	local string=$1
+
+	if [ "${string:0:3}" == '--' ] && [ "${#string}" == 2 ]
+	then
+		return $PARAM_TYPE_DELIMITER
+	fi
+
+	if [ "${string:0:2}" == '--' ]
+	then
+		printf '%s\n' "${string#--}"
+		return $PARAM_TYPE_LONG_OPTION
+	fi
+
+	if [ "${string:0:1}" == '-' ]
+	then
+		printf '%s\n' "${string#-}"
+		return $PARAM_TYPE_SHORT_OPTION_LIST
+	fi
+
+	return $PARAM_TYPE_BAD_PARAMETER
+}
+
+
+parse-short-option-list()
+{
+	local option_list=$1
+	local value=$2
+
+	local index
+	for (( index = 0; index < ${#option_list}; ++index ))
+	do
+		local option="${option_list:$index:1}"
+
+		if [ ! ${SCRIPT_OPTIONS[$option]+_} ]
+		then
+			printf-error 'unknown option "%s"' "$option"
+			exit 1
+		fi
+
+		"${SCRIPT_OPTIONS[$option]}" "$value"
+		local retval=$?
+		if [ $retval != 0 ]
+		then
+			return $retval
+		fi
+	done
+}
+
+
+parse-long-option()
+{
+	local option=$1
+	local value=$2
+
+	if [ ! ${SCRIPT_OPTIONS[$option]+_} ]
+	then
+		printf-error 'unknown option "%s"' "$option"
+		exit 1
+	fi
+
+	"${SCRIPT_OPTIONS[$option]}" "$value"
+	return $?
+}
+
+
+parse-parameters()
+{
+	local command=$1
+	local parameters=("${@:2}")
+
+	if [ -z "$command" ] || [ "$command" == '-h' ] || [ "$command" == '--help' ]
+	then
+		show-help
+		return 2
+	fi
+
+	if ! array-contains "$command" "${SCRIPT_COMMANDS[@]}"
+	then
+		printf-error 'unknown command '"'$command'"
+		return 1
+	fi
+
+	OPTION_COMMAND="$command"
+
+	local parameter_index
+	for (( parameter_index = 0; parameter_index < ${#parameters[@]}; ++parameter_index ))
+	do
+		local parameter
+		parameter=$(check-parameter "${parameters[$parameter_index]}")
+		local parameter_type=$?
+
+		case $parameter_type in
+			$PARAM_TYPE_SHORT_OPTION_LIST)
+				local value="${parameters[$parameter_index + 1]}"
+				parse-short-option-list "$parameter" "$value"
+				(( parameter_index += $? ))
+				continue
+				;;
+
+			$PARAM_TYPE_LONG_OPTION)
+				local value="${parameters[$parameter_index + 1]}"
+				parse-long-option "$parameter" "$value"
+				(( parameter_index += $? ))
+				continue
+				;;
+
+			$PARAM_TYPE_DELIMITER)
+				(( ++parameter_index ))
+				break
+				;;
+
+			$PARAM_TYPE_BAD_PARAMETER)
+				printf-error 'bad parameter format "%s"' "$parameter"
+				exit 1
+				;;
+		esac
+	done
+
+	if [ $parameter_index == ${#parameters[@]} ]
+	then
+		return
+	fi
+
+	if [ $parameter_type == $PARAM_TYPE_DELIMITER ]
+	then
+		for (( ; parameter_index < ${#parameters[@]}; ++parameter_index ))
+		do
+			local parameter="${parameters[$parameter_index]}"
+			FOREACH_ARGUMENTS+=("$parameter")
+		done
+	fi
+}
+
+
+validate-options()
+{
+	local command=$1
+
+	if ! exclusive $OPTION_STRICT_MATCH $OPTION_REGEX_MATCH
+	then
+		printf-error 'you can specify only one type of pattern match'
+		return 1
+	fi
+
+	if ! exclusive $OPTION_GNOME_TABS $OPTION_TMUX
+	then
+		printf-error 'you can'"'"'t specify both Gnome Terminal tabs and tmux panels'
+		return 1
+	fi
+
+	if [ -z $OPTION_PROJECT_NAME_PATTERN ] && [ -z $OPTION_BRANCH_NAME_PATTERN ] && $OPTION_NEGATE_PATTERN
+	then
+		printf-error 'there is no pattern to negate'
+		return 1
+	fi
+
+	case $command in
+		status)
+			if $OPTION_GNOME_TABS
+			then
+				printf-error "'"'-t'"'"' or '"'"'--tabs'"'"' should be used with '"'"'open'"'"' action'
+				return 1
+			fi
+
+			if $OPTION_TMUX
+			then
+				printf-error "'"'-x'"'"' or '"'"'--tmux'"'"' should be used with '"'"'open'"'"' action'
+				return 1
+			fi
+
+			if $OPTION_INTERACTIVE
+			then
+				printf-error "'"'-i'"'"' or '"'"'--interactive'"'"' should be used with '"'"'open'"'"' action'
+				return 1
+			fi
+			;;
+
+		git|foreach)
+			if $OPTION_GNOME_TABS
+			then
+				printf-error "'"'-t'"'"' or '"'"'--tabs'"'"' should be used with '"'"'open'"'"' action'
+				return 1
+			fi
+			if $OPTION_TMUX
+			then
+				printf-error "'"'-x'"'"' or '"'"'--tmux'"'"' should be used with '"'"'open'"'"' action'
+				return 1
+			fi
+			;;
+	esac
+
+	if [ -n "$OPTION_PROJECT_PATH" ] && [ ! -d "$OPTION_PROJECT_PATH" ]
+	then
+		printf-error "'"'%s'"'"' does not exist' "$OPTION_PROJECT_PATH"
+		exit 1
+	fi
+}
+
+
+apply-options()
+{
+	case $OPTION_COMMAND in
+		status)
+			DO_JOB_FUNCTION=show-repositories-status
+			;;
+
+		open)
+			DO_JOB_FUNCTION=open-projects
+			;;
+
+		git)
+			DO_JOB_FUNCTION=foreach-project-git
+			;;
+
+		foreach)
+			DO_JOB_FUNCTION=foreach-project
+			;;
+
+		cache-workspace-info)
+			printf-message 'Caching workspace info...'
+			cache-workspace-info
+			exit
+			;;
+
+		install-completion-script)
+			install-completion-script
+			if [ $? == 1 ]
+			then
+				printf-error 'permission denied'
+				exit 1
+			fi
+
+			printf-message 'please restart shell'
+			exit
+			;;
+	esac
+
+	PROJECT_PATH=$(normalize-path "$OPTION_PROJECT_PATH")
+	PROJECT_NAME_PATTERN="$OPTION_PROJECT_NAME_PATTERN"
+	BRANCH_NAME_PATTERN="$OPTION_BRANCH_NAME_PATTERN"
+
+	if $OPTION_STRICT_MATCH
+	then
+		MATCH_PATTERN_FUNCTION=strict-match
+	elif $OPTION_REGEX_MATCH
+	then
+		MATCH_PATTERN_FUNCTION=regex-match
+	fi
+
+	if $OPTION_NEGATE_PATTERN
+	then
+		CONDITION_PREFIX_FUNCTION=negate
+	fi
+
+	if [ -n "$OPTION_PROJECT_NAME_PATTERN" ]
+	then
+		MATCHERS+=('project-match-name')
+	fi
+
+	if [ -n "$OPTION_BRANCH_NAME_PATTERN" ]
+	then
+		MATCHERS+=('project-match-branch')
+	fi
+
+	if $OPTION_MATCH_CURRENT_BRANCH
+	then
+		REPOSITORY_FILTER_BRANCHES_FUNCTION=repository-current-branch-name
+	fi
+
+	if $OPTION_UNCOMMITED
+	then
+		MATCHERS+=('project-has-uncommited-changes')
+	fi
+
+	if $OPTION_IGNORE_DETACHED
+	then
+		MATCHERS+=('project-do-not-match-detached-head')
+	fi
+
+	if $OPTION_GNOME_TABS
+	then
+		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-gnome-terminal
+	elif $OPTION_TMUX
+	then
+		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-tmux
+	fi
+}
+
+
+#
+# Progress
+
+make-progress-string()
+{
+	PROGRESS_BAR_CHARACTER='#'
+	PROGRESS_BAR_SIZE=20
+	PROGRESS_BAR_FILL=$(printf "$PROGRESS_BAR_CHARACTER"'%.0s' $(seq 1 $PROGRESS_BAR_SIZE))
+
+	local current=$1
+	local total=$2
+
+	local percentage=$(( current * 100 / total ))
+	local current_length=$(( percentage * PROGRESS_BAR_SIZE / 100 ))
+	local fill="${PROGRESS_BAR_FILL:$PROGRESS_BAR_SIZE-$current_length}"
+	printf '[%*s] % 3s%% (%*s/%s)' -$PROGRESS_BAR_SIZE "$fill" "$percentage" ${#total} $current $total
+	return $current_length
+}
+
+
+print-progress-string()
+{
+	local current=$1
+	local total=$2
+
+	progress_string=$(make-progress-string $current $total)
+	printf '\r%s' "$progress_string"
+}
+
+
+#
+# Sanity checks
+
+if ! command-exists 'git'
+then
+	printf-error 'git is not installed'
+	exit 1
+fi
+
+
+#
+# Script parameters
+
+parse-parameters "$@"
+if [ $? != 0 ]
+then
+	exit 1
+fi
+
+if ! validate-options $1
+then
+	exit 1
+fi
+
+apply-options
+
+
+#
+# Main
+
+if [ ! -f "$WORKSPACE_PROJECT_PATHS_PATH" ]
+then
+	printf-message 'Caching workspace info...'
+	cache-workspace-info
+fi
+
+project_paths=($(cat "$WORKSPACE_PROJECT_PATHS_PATH"))
+project_count="${#project_paths[@]}"
+if [ $project_count == 0 ]
+then
+	printf-error 'no projects found'
+	exit 1
+fi
+
+declare -a matched_projects
+index=( -1 )
+
+printf-message 'Scanning projects...'
+while :
+do
+	(( ++index ))
+	project_path="${project_paths[$index]}"
+
+	print-progress-string $index $project_count
+
+	if [ $index == $project_count ]
+	then
+		break;
+	fi
+
+	run-matchers "$project_path" "$PROJECT_NAME_PATTERN" "$BRANCH_NAME_PATTERN" "${MATCHERS[*]}"
+	if [ $? != 0 ]
+	then
+		continue
+	fi
+
+	matched_projects+=("$project_path")
+done
+
+printf-message '\n'
+
+if [ "${#matched_projects[@]}" == 0 ]
+then
+	printf-error 'no matched projects found'
+	exit 1
+fi
+
+do-job "${matched_projects[@]}"
+printf-message 'Done.'
