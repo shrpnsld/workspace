@@ -395,7 +395,7 @@ repository-raw-branch-list()
 {
 	local path=$1
 
-	local output=$(cd "$path"; git branch | sed -e 's/* //' -e 's/  //')
+	local output=$(cd "$path"; git branch | grep -v 'HEAD detached at' | sed -e 's/* //' -e 's/  //')
 	printf '%s\n' "$output"
 }
 
@@ -622,23 +622,18 @@ array-contains()
 }
 
 
-super-user()
-{
-	[[ $EUID == 0 ]]
-}
-
-
 #
 # Jobs
 
 install-completion-script()
 {
-	if ! super-user
+	local bash_completion_dir='/etc/bash_completion.d/'
+	if ! [ -w "$bash_completion_dir" ]
 	then
 		return 1
 	fi
 
-	printf '%s\n' "$BASH_COMPLETION_SCRIPT" > '/etc/bash_completion.d/workspace'
+	printf '%s\n' "$BASH_COMPLETION_SCRIPT" > "$bash_completion_dir/$SCRIPT_NAME"
 }
 
 
