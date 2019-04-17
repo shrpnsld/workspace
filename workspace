@@ -642,10 +642,14 @@ install-completion-script()
 }
 
 
-cache-workspace-info()
+cache-workspace-paths-and-names()
 {
+	local workspace_project_paths_cache_path=$1
+	local workspace_project_list_cache_path=$2
+	local workspace_path=$3
+
 	# project paths
-	local git_dirs=($(find "$PROJECT_PATH" '!' -path '*attic*' -type d -name '.git'))
+	local git_dirs=($(find "$workspace_path" '!' -path '*attic*' -type d -name '.git'))
 	local project_paths=()
 	local git_dir
 	for git_dir in "${git_dirs[@]}"
@@ -653,49 +657,71 @@ cache-workspace-info()
 		project_paths+=("$(dirname "$git_dir")")
 	done
 
-	# project names and branches
+	# project names
 	local project_list=()
-	local branch_list=()
 	local project_path
 	for project_path in "${project_paths[@]}"
 	do
 		local project_name=$(basename "$project_path")
 		project_list+=("$project_name")
-
-		if repository-has-detached-head "$project_path"
-		then
-			continue
-		fi
-
-		local branches=($(repository-raw-branch-list "$project_path"))
-		branch_list+=("${branches[@]}")
 	done
 
-	# project name parts
 	local parts=()
 	local project_name
 	for project_name in "${project_list[@]}"
 	do
 		local tokens
-		IFS='.- ' read -ra tokens <<< "$project_name"
+		IFS='.-_ ' read -ra tokens <<< "$project_name"
 		parts+=("${tokens[@]}")
 	done
 	project_list+=("${parts[@]}")
-    
-	# branch name parts
-	local parts=()
-	local branch
-	for branch in "${branch_list[@]}"
-	do
-		local tokens
-		IFS='/-' read -ra tokens <<< "$branch"
-		parts+=("${tokens[@]}")
-	done
-	branch_list+=("${parts[@]}")
 
 	printf '%s\n' "${project_paths[@]}" > "$WORKSPACE_PROJECT_PATHS_PATH"
 	printf '%s\n' "${project_list[@]}" | sort | uniq > "$WORKSPACE_PROJECT_LIST_PATH"
-	printf '%s\n' "${branch_list[@]}" | sort | uniq > "$WORKSPACE_BRANCH_LIST_PATH"
+}
+
+
+cache-branch-list()
+{
+	local cache_path=$1
+	local branch_list=("${@:2}")
+
+	local tokens=()
+	local branch
+	for branch in "${branch_list[@]}"
+	do
+		local components
+		IFS='/' read -ra components <<< "$branch"
+
+		tokens+=("${components[@]}")
+
+		local component
+		for component in "${components[@]}"
+		do
+			local words
+			IFS='-_' read -ra words <<< "$component"
+			tokens+=("${words[@]}")
+		done
+	done
+	branch_list+=("${tokens[@]}")
+
+	printf '%s\n' "${branch_list[@]}" | sort | uniq > "$cache_path"
+}
+
+
+cache-branches()
+{
+	local cache_path=$1
+	local project_paths=("${@:2}")
+
+	local branch_list=()
+	local path
+	for path in "${project_paths[@]}"
+	do
+		branch_list+=($(repository-raw-branch-list "$path"))
+	done
+
+	cache-branch-list "$cache_path" "${branch_list[@]}"
 }
 
 
@@ -1084,7 +1110,9 @@ apply-options()
 
 		cache-workspace-info)
 			printf-message 'Caching workspace info...'
-			cache-workspace-info
+			cache-workspace-paths-and-names "$WORKSPACE_PROJECT_PATHS_PATH" "$WORKSPACE_PROJECT_LIST_PATH" "$PROJECT_PATH"
+			local project_paths=($(cat "$WORKSPACE_PROJECT_PATHS_PATH"))
+			cache-branches "$WORKSPACE_BRANCH_LIST_PATH" "${project_paths[@]}"
 			exit
 			;;
 
@@ -1213,10 +1241,39 @@ apply-options
 #
 # Main
 
-if [ ! -f "$WORKSPACE_PROJECT_PATHS_PATH" ]
+if [ -f "$WORKSPACE_BRANCH_LIST_PATH" ]
+then
+	BRANCH_NAME_LIST_OUTDATED=false
+	CHECK_BRANCH_CHANGED_FUNCTION=check-branch-changed-implementation
+else
+	BRANCH_NAME_LIST_OUTDATED=true
+	CHECK_BRANCH_CHANGED_FUNCTION=nothing
+fi
+
+
+check-branch-changed-implementation()
+{
+	local project_path=$1
+
+	local output=$(find "$project_path/.git/refs/heads/" -newer "$WORKSPACE_BRANCH_LIST_PATH")
+	if [ -n "$output" ]
+	then
+		BRANCH_NAME_LIST_OUTDATED=true
+		CHECK_BRANCH_CHANGED_FUNCTION=nothing
+	fi
+}
+
+
+check-branch-changed()
+{
+	"$CHECK_BRANCH_CHANGED_FUNCTION" "$@"
+}
+
+
+if [ ! -f "$WORKSPACE_PROJECT_PATHS_PATH" ] || [ ! -f "$WORKSPACE_PROJECT_LIST_PATH" ]
 then
 	printf-message 'Caching workspace info...'
-	cache-workspace-info
+	cache-workspace-paths-and-names "$WORKSPACE_PROJECT_PATHS_PATH" "$WORKSPACE_PROJECT_LIST_PATH" "$PROJECT_PATH"
 fi
 
 project_paths=($(cat "$WORKSPACE_PROJECT_PATHS_PATH"))
@@ -1228,6 +1285,7 @@ then
 fi
 
 declare -a matched_projects
+declare -a branch_list
 index=( -1 )
 
 printf-message 'Scanning projects...'
@@ -1243,6 +1301,9 @@ do
 		break;
 	fi
 
+	check-branch-changed "$project_path"
+	branch_list+=($(repository-raw-branch-list "$project_path"))
+
 	run-matchers "$project_path" "$PROJECT_NAME_PATTERN" "$BRANCH_NAME_PATTERN" "${MATCHERS[*]}"
 	if [ $? != 0 ]
 	then
@@ -1253,6 +1314,11 @@ do
 done
 
 printf-message '\n'
+
+if $BRANCH_NAME_LIST_OUTDATED
+then
+	cache-branch-list "${branch_list[@]}"
+fi
 
 if [ "${#matched_projects[@]}" == 0 ]
 then
