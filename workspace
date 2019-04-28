@@ -218,54 +218,6 @@ DO_JOB_FUNCTION=''
 #
 # Options
 
-declare -A SCRIPT_OPTIONS
-
-SCRIPT_OPTIONS[W]='set-workspace-path'
-SCRIPT_OPTIONS[workspace-path]='set-workspace-path'
-
-SCRIPT_OPTIONS[s]='set-strict-next-pattern'
-SCRIPT_OPTIONS[strict]='set-strict-next-pattern'
-
-SCRIPT_OPTIONS[S]='set-strict-all-patterns'
-SCRIPT_OPTIONS[strict-all]='set-strict-all-patterns'
-
-SCRIPT_OPTIONS[n]='set-negate-next-pattern'
-SCRIPT_OPTIONS[negate]='set-negate-next-pattern'
-
-SCRIPT_OPTIONS[N]='set-negate-all-patterns'
-SCRIPT_OPTIONS[negate-all]='set-negate-all-patterns'
-
-SCRIPT_OPTIONS[u]='set-match-uncommited'
-SCRIPT_OPTIONS[unstaged]='set-match-uncommited'
-
-SCRIPT_OPTIONS[d]='set-ignore-detached'
-SCRIPT_OPTIONS[detached]='set-ignore-detached'
-
-SCRIPT_OPTIONS[p]='add-project-name-matcher'
-SCRIPT_OPTIONS[project]='add-project-name-matcher'
-
-SCRIPT_OPTIONS[B]='add-current-branch-name-matcher'
-SCRIPT_OPTIONS[branch]='add-current-branch-name-matcher'
-
-SCRIPT_OPTIONS[b]='add-local-branch-name-matcher'
-SCRIPT_OPTIONS[branches]='add-local-branch-name-matcher'
-
-SCRIPT_OPTIONS[r]='add-remote-branch-name-matcher'
-SCRIPT_OPTIONS[remote]='add-remote-branch-name-matcher'
-
-SCRIPT_OPTIONS[a]='add-branch-name-matcher'
-SCRIPT_OPTIONS[all]='add-branch-name-matcher'
-
-SCRIPT_OPTIONS[t]='set-gnome-tabs'
-SCRIPT_OPTIONS[tabs]='set-gnome-tabs'
-
-SCRIPT_OPTIONS[x]='set-tmux'
-SCRIPT_OPTIONS[tmux]='set-tmux'
-
-SCRIPT_OPTIONS[i]='set-interactive'
-SCRIPT_OPTIONS[interactive]='set-interactive'
-
-
 OPTION_COMMAND=''
 OPTION_PROJECT_PATH=''
 OPTION_STRICT_MATCH=false
@@ -278,16 +230,6 @@ OPTION_IGNORE_DETACHED=false
 OPTION_GNOME_TABS=false
 OPTION_TMUX=false
 OPTION_INTERACTIVE=false
-
-
-set-workspace-path()
-{
-	local value=$1
-
-	OPTION_PROJECT_PATH="$value"
-
-	return 1
-}
 
 
 add-matcher()
@@ -314,106 +256,6 @@ add-matcher()
 	fi
 
 	MATCHER_PATTERNS+=("$pattern")
-}
-
-
-add-project-name-matcher()
-{
-	local pattern=$1
-
-	add-matcher 'matcher-project-name' "$pattern"
-	return 1
-}
-
-
-add-current-branch-name-matcher()
-{
-	local pattern=$1
-
-	add-matcher 'matcher-current-branch-name' "$pattern"
-	return 1
-}
-
-
-add-local-branch-name-matcher()
-{
-	local pattern=$1
-
-	add-matcher 'matcher-local-branch-name' "$pattern"
-	return 1
-}
-
-
-add-remote-branch-name-matcher()
-{
-	local pattern=$1
-
-	add-matcher 'matcher-remote-branch-name' "$pattern"
-	return 1
-}
-
-
-add-branch-name-matcher()
-{
-	local pattern=$1
-
-	add-matcher 'matcher-branch-name' "$pattern"
-	return 1
-}
-
-
-set-negate-next-pattern()
-{
-	OPTION_NEGATE_NEXT_PATTERN=true
-}
-
-
-set-negate-all-patterns()
-{
-	OPTION_NEGATE_ALL_PATTERNS=true
-}
-
-
-set-strict-next-pattern()
-{
-	OPTION_STRICT_NEXT_PATTERN=true
-}
-
-
-set-strict-all-patterns()
-{
-	OPTION_STRICT_ALL_PATTERNS=true
-}
-
-
-set-match-uncommited()
-{
-	OPTION_UNCOMMITED=true
-}
-
-
-set-ignore-detached()
-{
-	OPTION_IGNORE_DETACHED=true
-}
-
-
-set-interactive()
-{
-	OPTION_INTERACTIVE=true
-	PROMPT_TO_USE_REPOSITORY_FUNCTION=prompt-user-to-select-project-implementation
-}
-
-
-set-gnome-tabs()
-{
-	OPTION_GNOME_TABS=true
-}
-
-
-set-tmux()
-{
-	OPTION_TMUX=true
 }
 
 
@@ -1106,45 +948,84 @@ check-parameter()
 }
 
 
-parse-short-option-list()
-{
-	local option_list=$1
-	local value=$2
-
-	local index
-	for (( index = 0; index < ${#option_list}; ++index ))
-	do
-		local option="${option_list:$index:1}"
-
-		if [ ! ${SCRIPT_OPTIONS[$option]+_} ]
-		then
-			printf-error 'unknown option "%s"' "$option"
-			exit 1
-		fi
-
-		"${SCRIPT_OPTIONS[$option]}" "$value"
-		local retval=$?
-		if [ $retval != 0 ]
-		then
-			return $retval
-		fi
-	done
-}
-
-
-parse-long-option()
+parse-option()
 {
 	local option=$1
 	local value=$2
 
-	if [ ! ${SCRIPT_OPTIONS[$option]+_} ]
-	then
-		printf-error 'unknown option "%s"' "$option"
-		exit 1
-	fi
+	case "$option" in
+		W|workspace-path)
+			OPTION_PROJECT_PATH="$value"
+			return 1
+			;;
 
-	"${SCRIPT_OPTIONS[$option]}" "$value"
-	return $?
+		p|project)
+			add-matcher 'matcher-project-name' "$value"
+			return 1
+			;;
+
+		b|branch)
+			add-matcher 'matcher-current-branch-name' "$value"
+			return 1
+			;;
+
+		b|branches)
+			add-matcher 'matcher-local-branch-name' "$value"
+			return 1
+			;;
+
+		r|remote-branches)
+			add-matcher 'matcher-remote-branch-name' "$value"
+			return 1
+			;;
+
+		a|all-branches)
+			add-matcher 'matcher-branch-name' "$value"
+			return 1
+			;;
+
+		s|strict)
+			OPTION_STRICT_NEXT_PATTERN=true
+			;;
+
+		S|strict-all)
+			OPTION_STRICT_ALL_PATTERNS=true
+			;;
+
+		n|negate)
+			OPTION_NEGATE_NEXT_PATTERN=true
+			;;
+
+		N|negate-all)
+			OPTION_NEGATE_ALL_PATTERNS=true
+			;;
+
+		u|uncommited)
+			OPTION_UNCOMMITED=true
+			;;
+
+		d|ignore-detached)
+			OPTION_IGNORE_DETACHED=true
+			;;
+
+		t|tabs)
+			OPTION_GNOME_TABS=true
+			;;
+
+		x|tmux)
+			OPTION_TMUX=true
+			;;
+
+		i|interactive)
+			OPTION_INTERACTIVE=true
+			PROMPT_TO_USE_REPOSITORY_FUNCTION=prompt-user-to-select-project-implementation
+			;;
+
+		*)
+			printf-error 'unknown option "%s"' "$option"
+			exit 1
+			;;
+	esac
 }
 
 
@@ -1177,14 +1058,25 @@ parse-parameters()
 		case $parameter_type in
 			$PARAM_TYPE_SHORT_OPTION_LIST)
 				local value="${parameters[$parameter_index + 1]}"
-				parse-short-option-list "$parameter" "$value"
-				(( parameter_index += $? ))
+
+				local index
+				for (( index = 0; index < ${#parameter}; ++index ))
+				do
+					local option="${parameter:$index:1}"
+					parse-option "$option" "$value"
+					if [ $? != 0 ]
+					then
+						(( parameter_index += 1 ))
+						break;
+					fi
+				done
+
 				continue
 				;;
 
 			$PARAM_TYPE_LONG_OPTION)
 				local value="${parameters[$parameter_index + 1]}"
-				parse-long-option "$parameter" "$value"
+				parse-option "$parameter" "$value"
 				(( parameter_index += $? ))
 				continue
 				;;
