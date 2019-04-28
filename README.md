@@ -84,7 +84,7 @@ $ workspace open -x -p engine
 
 ### Options
 
-* `-P`, `--path <project-path>` – search path [default: current directory]
+* `-W`, `--workspace-path <path>` – search path [default: current directory]
 * `-p`, `--project <pattern>` – project name pattern
 * `-B`, `--branch <pattern>` – current branch name pattern
 * `-b`, `--branches <pattern>` – branch name pattern for local branches

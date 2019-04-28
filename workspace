@@ -83,7 +83,7 @@ HELP_MESSAGE=\
              panels.
 
 \e[1mOPTIONS\e[0m
-    -P | --path <project-path>        Search path [default: current directory].
+    -W | --workspace-path <path>      Search path [default: current directory].
     -p | --project <pattern>          Project name pattern.
     -B | --branch <pattern>           Current branch name pattern.
     -b | --branches <pattern>         Branch name pattern for local branches.
@@ -220,8 +220,8 @@ DO_JOB_FUNCTION=''
 
 declare -A SCRIPT_OPTIONS
 
-SCRIPT_OPTIONS[P]='set-project-path'
-SCRIPT_OPTIONS[path]='set-project-path'
+SCRIPT_OPTIONS[W]='set-workspace-path'
+SCRIPT_OPTIONS[workspace-path]='set-workspace-path'
 
 SCRIPT_OPTIONS[s]='set-strict-next-pattern'
 SCRIPT_OPTIONS[strict]='set-strict-next-pattern'
@@ -280,7 +280,7 @@ OPTION_TMUX=false
 OPTION_INTERACTIVE=false
 
 
-set-project-path()
+set-workspace-path()
 {
 	local value=$1
 
