@@ -942,8 +942,6 @@ start-bash()
 {
 	local project_paths=("$@")
 
-	local gnome_terminal_options=()
-
 	local path
 	for path in "${project_paths[@]}"
 	do
