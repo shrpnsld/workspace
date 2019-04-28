@@ -38,12 +38,23 @@ fi
 
 
 PROJECT_PATH="$PWD"
-WORKSPACE_PROJECT_PATHS_FILE_NAME=".workspace-project-paths"
-WORKSPACE_PROJECT_LIST_FILE_NAME=".workspace-project-list"
-WORKSPACE_BRANCH_LIST_FILE_NAME=".workspace-branch-list"
-WORKSPACE_PROJECT_PATHS_PATH="$PROJECT_PATH/$WORKSPACE_PROJECT_PATHS_FILE_NAME"
-WORKSPACE_PROJECT_LIST_PATH="$PROJECT_PATH/$WORKSPACE_PROJECT_LIST_FILE_NAME"
-WORKSPACE_BRANCH_LIST_PATH="$PROJECT_PATH/$WORKSPACE_BRANCH_LIST_FILE_NAME"
+
+WORKSPACE_CACHE_DIR_NAME='.workspace-cache'
+WORKSPACE_PROJECT_PATHS_FILE_NAME="project-paths"
+WORKSPACE_PROJECT_LIST_FILE_NAME="project-list"
+WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME="current-branch-list"
+WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME="local-branch-list"
+WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME="remote-branch-list"
+WORKSPACE_BRANCH_LIST_FILE_NAME="branch-list"
+
+WORKSPACE_CACHE_PATH="$PROJECT_PATH/$WORKSPACE_CACHE_DIR_NAME"
+WORKSPACE_PROJECT_PATHS_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_PROJECT_PATHS_FILE_NAME"
+WORKSPACE_PROJECT_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_PROJECT_LIST_FILE_NAME"
+WORKSPACE_CURRENT_BRANCH_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME"
+WORKSPACE_LOCAL_BRANCH_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME"
+WORKSPACE_REMOTE_BRANCH_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME"
+WORKSPACE_BRANCH_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_BRANCH_LIST_FILE_NAME"
+
 SCRIPT_COMMANDS=('status' 'git' 'foreach' 'open' 'cache-workspace-info' 'install-completion-script')
 
 HELP_MESSAGE=\
@@ -65,32 +76,35 @@ HELP_MESSAGE=\
               [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
 
 \e[1mCOMMANDS\e[0m
-    status     show git status for project.
-    git        run git command for each project.
-    foreach    run command for each project.
-    open       open projects in bash (default), Gnome-Terminal tabs or tmux
-               panels.
+    status   show git status for project.
+    git      run git command for each project.
+    foreach  run command for each project.
+    open     open projects in bash (default), Gnome-Terminal tabs or tmux
+             panels.
 
 \e[1mOPTIONS\e[0m
-    -P | --path <project-path>  Search path [default: current directory].
-    -s | --strict               Match <pattern> strictly.
-    -r | --regex                Use <pattern> as regex.
-    -n | --negate               Negate all patterns.
-    -p | --project <pattern>    Project name pattern.
-    -B | --branch <pattern>     Current branch name pattern.
-    -b | --branches <pattern>   Branch name pattern for existing branches.
-    -u | --uncommited           Match projects with uncommited changes.
-    -d | --ignore-detached      Do not match projects with detached HEAD.
-    -t | --tabs                 Open projects in Gnome Terminal tabs.
-    -x | --tmux                 Open projects in tmux panels.
-    -i | --interactive          Chose projects to do your stuff with.
-    -h | --help                 Show this message.
+    -P | --path <project-path>        Search path [default: current directory].
+    -p | --project <pattern>          Project name pattern.
+    -B | --branch <pattern>           Current branch name pattern.
+    -b | --branches <pattern>         Branch name pattern for local branches.
+    -r | --remote-branches <pattern>  Branch name pattern for remote branches.
+    -a | --all-branches <pattern>     Branch name pattern for all branches.
+    -s | --strict                     Match next pattern strictly.
+    -S | --strict-all                 Match all patterns strictly.
+    -n | --negate                     Negate next pattern.
+    -N | --negate-all                 Negate all patterns.
+    -u | --uncommited                 Match projects with uncommited changes.
+    -d | --ignore-detached            Do not match projects with detached HEAD.
+    -t | --tabs                       Open projects in Gnome Terminal tabs.
+    -x | --tmux                       Open projects in tmux panels.
+    -i | --interactive                Chose projects to do your stuff with.
+    -h | --help                       Show this message.
 
 \e[1mADDITIONAL COMMANDS\e[0m
-    install-completion-script    Install bash completion script for project and
-                                 branch names.
-    cache-workspace-info         Cache project paths and store project and
-                                 branch names for completion script.
+    install-completion-script  Install bash completion script for project and
+                               branch names.
+    cache-workspace-info       Cache project paths and store project and branch
+                               names for completion script.
 
 \e[1mNOTES\e[0m
     Project name is the name of the folder that is parent to '.git' folder.
@@ -124,8 +138,11 @@ HELP_MESSAGE=\
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
 
-WORKSPACE_PROJECT_LIST_FILE_NAME='"$WORKSPACE_PROJECT_LIST_FILE_NAME"'
-WORKSPACE_BRANCH_LIST_FILE_NAME='"$WORKSPACE_BRANCH_LIST_FILE_NAME"'
+WORKSPACE_PROJECT_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_PROJECT_LIST_FILE_NAME"'
+WORKSPACE_CURRENT_BRANCH_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME"'
+WORKSPACE_LOCAL_BRANCH_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME"'
+WORKSPACE_REMOTE_BRANCH_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME"'
+WORKSPACE_BRANCH_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_BRANCH_LIST_FILE_NAME"'
 
 
 _workspace-completion-is-short-option()
@@ -148,18 +165,35 @@ _workspace-completion()
 
 	if ([ "$argument" == "--project" ] \
 		|| (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "p" ])) \
-		&& [ -f "$WORKSPACE_PROJECT_LIST_FILE_NAME" ]
+		&& [ -f "$WORKSPACE_PROJECT_LIST_FILE_PATH" ]
 	then
-		local projects=$(cat "$WORKSPACE_PROJECT_LIST_FILE_NAME")
+		local projects=$(cat "$WORKSPACE_PROJECT_LIST_FILE_PATH")
 		COMPREPLY=($(compgen -W "$projects" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
 
-	if ([ "$argument" == "--branch" ] || [ "$argument" == "--branches" ] \
-		|| (_workspace-completion-is-short-option "$argument" && ([ "${argument: -1}" == "B" ] || [ "${argument: -1}" == "b" ]))) \
-		&& [ -f "$WORKSPACE_BRANCH_LIST_FILE_NAME" ]
+	if ([ "$argument" == "--branch" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "B" ])) \
+		&& [ -f "$WORKSPACE_CURRENT_BRANCH_LIST_FILE_PATH" ]
 	then
-		local branches=$(cat "$WORKSPACE_BRANCH_LIST_FILE_NAME")
+		local branches=$(cat "$WORKSPACE_CURRENT_BRANCH_LIST_FILE_PATH")
+		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
+		return
+	elif ([ "$argument" == "--branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "b" ])) \
+		&& [ -f "$WORKSPACE_LOCAL_BRANCH_LIST_FILE_PATH" ]
+	then
+		local branches=$(cat "$WORKSPACE_LOCAL_BRANCH_LIST_FILE_PATH")
+		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
+		return
+	elif ([ "$argument" == "--remote-branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "r" ])) \
+		&& [ -f "$WORKSPACE_REMOTE_BRANCH_LIST_FILE_PATH" ]
+	then
+		local branches=$(cat "$WORKSPACE_REMOTE_BRANCH_LIST_FILE_PATH")
+		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
+		return
+	elif ([ "$argument" == "--all-branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "a" ])) \
+		&& [ -f "$WORKSPACE_BRANCH_LIST_FILE_PATH" ]
+	then
+		local branches=$(cat "$WORKSPACE_BRANCH_LIST_FILE_PATH")
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
@@ -168,12 +202,13 @@ _workspace-completion()
 complete -F _workspace-completion '"$SCRIPT_NAME"
 
 
-declare -a MATCHERS
-REPOSITORY_FILTER_BRANCHES_FUNCTION=repository-branch-names
 MATCH_PATTERN_FUNCTION=inclusion-match
-CONDITION_PREFIX_FUNCTION=straight
-PROJECT_NAME_PATTERN=''
-BRANCH_NAME_PATTERN=''
+
+MATCHERS=()
+MATCHER_PREFIXES=()
+MATCH_FUNCTIONS=()
+MATCHER_PATTERNS=()
+
 PROMPT_TO_USE_REPOSITORY_FUNCTION=nothing
 OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-bash
 declare -a FOREACH_ARGUMENTS
@@ -188,17 +223,17 @@ declare -A SCRIPT_OPTIONS
 SCRIPT_OPTIONS[P]='set-project-path'
 SCRIPT_OPTIONS[path]='set-project-path'
 
-SCRIPT_OPTIONS[s]='set-strict-match'
-SCRIPT_OPTIONS[strict]='set-strict-match'
+SCRIPT_OPTIONS[s]='set-strict-next-pattern'
+SCRIPT_OPTIONS[strict]='set-strict-next-pattern'
 
-SCRIPT_OPTIONS[r]='set-regex-match'
-SCRIPT_OPTIONS[regex]='set-regex-match'
+SCRIPT_OPTIONS[S]='set-strict-all-patterns'
+SCRIPT_OPTIONS[strict-all]='set-strict-all-patterns'
 
-SCRIPT_OPTIONS[n]='set-negate-pattern'
-SCRIPT_OPTIONS[negate]='set-negate-pattern'
+SCRIPT_OPTIONS[n]='set-negate-next-pattern'
+SCRIPT_OPTIONS[negate]='set-negate-next-pattern'
 
-SCRIPT_OPTIONS[a]='set-match-all-branches'
-SCRIPT_OPTIONS[all]='set-match-all-branches'
+SCRIPT_OPTIONS[N]='set-negate-all-patterns'
+SCRIPT_OPTIONS[negate-all]='set-negate-all-patterns'
 
 SCRIPT_OPTIONS[u]='set-match-uncommited'
 SCRIPT_OPTIONS[unstaged]='set-match-uncommited'
@@ -206,14 +241,20 @@ SCRIPT_OPTIONS[unstaged]='set-match-uncommited'
 SCRIPT_OPTIONS[d]='set-ignore-detached'
 SCRIPT_OPTIONS[detached]='set-ignore-detached'
 
-SCRIPT_OPTIONS[p]='set-project-name-pattern'
-SCRIPT_OPTIONS[project]='set-project-name-pattern'
+SCRIPT_OPTIONS[p]='add-project-name-matcher'
+SCRIPT_OPTIONS[project]='add-project-name-matcher'
 
-SCRIPT_OPTIONS[B]='set-branch-name-pattern'
-SCRIPT_OPTIONS[branch]='set-branch-name-pattern'
+SCRIPT_OPTIONS[B]='add-current-branch-name-matcher'
+SCRIPT_OPTIONS[branch]='add-current-branch-name-matcher'
 
-SCRIPT_OPTIONS[b]='set-branches-name-pattern'
-SCRIPT_OPTIONS[branches]='set-branches-name-pattern'
+SCRIPT_OPTIONS[b]='add-local-branch-name-matcher'
+SCRIPT_OPTIONS[branches]='add-local-branch-name-matcher'
+
+SCRIPT_OPTIONS[r]='add-remote-branch-name-matcher'
+SCRIPT_OPTIONS[remote]='add-remote-branch-name-matcher'
+
+SCRIPT_OPTIONS[a]='add-branch-name-matcher'
+SCRIPT_OPTIONS[all]='add-branch-name-matcher'
 
 SCRIPT_OPTIONS[t]='set-gnome-tabs'
 SCRIPT_OPTIONS[tabs]='set-gnome-tabs'
@@ -227,12 +268,11 @@ SCRIPT_OPTIONS[interactive]='set-interactive'
 
 OPTION_COMMAND=''
 OPTION_PROJECT_PATH=''
-OPTION_PROJECT_NAME_PATTERN=''
-OPTION_BRANCH_NAME_PATTERN=''
-OPTION_MATCH_CURRENT_BRANCH=false
 OPTION_STRICT_MATCH=false
-OPTION_REGEX_MATCH=false
-OPTION_NEGATE_PATTERN=false
+OPTION_NEGATE_NEXT_PATTERN=false
+OPTION_NEGATE_ALL_PATTERNS=false
+OPTION_STRICT_NEXT_PATTERN=false
+OPTION_STRICT_ALL_PATTERNS=false
 OPTION_UNCOMMITED=false
 OPTION_IGNORE_DETACHED=false
 OPTION_GNOME_TABS=false
@@ -250,53 +290,99 @@ set-project-path()
 }
 
 
-set-project-name-pattern()
+add-matcher()
+{
+	local matcher=$1
+	local pattern=$2
+
+	MATCHERS+=("$matcher")
+
+	if $OPTION_NEGATE_NEXT_PATTERN
+	then
+		MATCHER_PREFIXES+=('negate')
+		OPTION_NEGATE_NEXT_PATTERN=false
+	else
+		MATCHER_PREFIXES+=('straight')
+	fi
+
+	if $OPTION_STRICT_NEXT_PATTERN
+	then
+		MATCH_FUNCTIONS+=('strict-match')
+		OPTION_STRICT_NEXT_PATTERN=false
+	else
+		MATCH_FUNCTIONS+=('inclusion-match')
+	fi
+
+	MATCHER_PATTERNS+=("$pattern")
+}
+
+
+add-project-name-matcher()
 {
 	local pattern=$1
 
-	OPTION_PROJECT_NAME_PATTERN="$pattern"
-
+	add-matcher 'matcher-project-name' "$pattern"
 	return 1
 }
 
 
-set-branch-name-pattern()
+add-current-branch-name-matcher()
 {
 	local pattern=$1
 
-	OPTION_MATCH_CURRENT_BRANCH=true
-	OPTION_BRANCH_NAME_PATTERN="$pattern"
-
+	add-matcher 'matcher-current-branch-name' "$pattern"
 	return 1
 }
 
 
-set-branches-name-pattern()
+add-local-branch-name-matcher()
 {
 	local pattern=$1
 
-	OPTION_MATCH_CURRENT_BRANCH=false
-	OPTION_BRANCH_NAME_PATTERN="$pattern"
-
+	add-matcher 'matcher-local-branch-name' "$pattern"
 	return 1
 }
 
 
-set-strict-match()
+add-remote-branch-name-matcher()
 {
-	OPTION_STRICT_MATCH=true
+	local pattern=$1
+
+	add-matcher 'matcher-remote-branch-name' "$pattern"
+	return 1
 }
 
 
-set-regex-match()
+add-branch-name-matcher()
 {
-	OPTION_REGEX_MATCH=true
+	local pattern=$1
+
+	add-matcher 'matcher-branch-name' "$pattern"
+	return 1
 }
 
 
-set-negate-pattern()
+set-negate-next-pattern()
 {
-	OPTION_NEGATE_PATTERN=true
+	OPTION_NEGATE_NEXT_PATTERN=true
+}
+
+
+set-negate-all-patterns()
+{
+	OPTION_NEGATE_ALL_PATTERNS=true
+}
+
+
+set-strict-next-pattern()
+{
+	OPTION_STRICT_NEXT_PATTERN=true
+}
+
+
+set-strict-all-patterns()
+{
+	OPTION_STRICT_ALL_PATTERNS=true
 }
 
 
@@ -340,18 +426,6 @@ match-pattern()
 }
 
 
-condition-prefix()
-{
-	"$CONDITION_PREFIX_FUNCTION" "$@"
-}
-
-
-repository-filter-branches()
-{
-	"$REPOSITORY_FILTER_BRANCHES_FUNCTION" "$@"
-}
-
-
 prompt-user-to-select-project()
 {
 	"$PROMPT_TO_USE_REPOSITORY_FUNCTION" "$@"
@@ -371,9 +445,9 @@ do-job()
 
 
 #
-# git
+# git pretty
 
-repository-current-branch-name()
+repository-current-branch-pretty()
 {
 	local path=$1
 
@@ -382,16 +456,39 @@ repository-current-branch-name()
 }
 
 
-repository-branch-names()
+repository-branch-list-pretty()
 {
 	local path=$1
 
-	local output=$(cd "$path"; git -c color.ui=always branch)
+	local output=$(cd "$path"; git -c color.ui=always branch --all)
 	printf '%s\n' "$output"
 }
 
 
-repository-raw-branch-list()
+repository-status-pretty()
+{
+	local path=$1
+
+	local project_name=$(basename "$path")
+	local status=$(cd "$path"; git -c color.ui=always status)
+
+	printf '\e[1;4m%s\e[0m\n%s\n' "$project_name" "$status"
+}
+
+
+#
+# git raw
+
+repository-current-branch()
+{
+	local path=$1
+
+	local output=$(cd "$path"; git branch | grep -v 'HEAD detached at' | grep '^\* ')
+	printf '%s\n' "${output##\* }"
+}
+
+
+repository-local-branch-list()
 {
 	local path=$1
 
@@ -400,15 +497,21 @@ repository-raw-branch-list()
 }
 
 
-repository-status()
+repository-remote-branch-list()
 {
 	local path=$1
 
-	local project_name=$(basename "$path")
-	local branches=$(repository-filter-branches "$path" "$BRANCH_NAME_PATTERN")
-	local status=$(cd "$path"; git -c color.ui=always status)
+	local output=$(cd "$path"; git branch --remote | grep -v 'HEAD detached at' | sed -e 's/* //' -e 's/  //')
+	printf '%s\n' "$output"
+}
 
-	printf '\e[1;4m%s\e[0m\n%s\n\n%s\n' "$project_name" "$branches" "$status"
+
+repository-branch-list()
+{
+	local path=$1
+
+	local output=$(cd "$path"; git branch --all | grep -v 'HEAD detached at' | sed -e 's/* //' -e 's/  //')
+	printf '%s\n' "$output"
 }
 
 
@@ -458,49 +561,89 @@ strict-match()
 }
 
 
-regex-match()
-{
-	local string=$1
-	local pattern=$2
-
-	grep --quiet "$pattern" <<< "$string"
-}
-
-
-project-match-name()
+matcher-project-name()
 {
 	local project_path=$1
-	local pattern=$2
-
-	local project_name=$(basename "$project_path")
-	match-pattern "$project_name" "$pattern"
-	condition-prefix $?
-}
-
-
-project-match-branch()
-{
-	local project_path=$1
+	local match_function=$2
 	local pattern=$3
 
-	local listed_branches=$(repository-filter-branches "$project_path")
-	local branch_line
-	while read branch_line
-	do
-		local branch_name="${branch_line#* }"
-		if match-pattern "$branch_name" "$pattern"
-		then
-			condition-prefix 0
-			return $?
-		fi
-	done <<< "$listed_branches"
-
-	condition-prefix 1
-	return $?
+	local project_name=$(basename "$project_path")
+	"$match_function" "$project_name" "$pattern"
 }
 
 
-project-has-uncommited-changes()
+matcher-current-branch-name()
+{
+	local project_path=$1
+	local match_function=$2
+	local pattern=$3
+
+	local branch=$(repository-current-branch "$project_path")
+	"$match_function" "$branch" "$pattern"
+}
+
+
+matcher-local-branch-name()
+{
+	local project_path=$1
+	local match_function=$2
+	local pattern=$3
+
+	local branches=$(repository-local-branch-list "$project_path")
+	local branch
+	for branch in "${branches[@]}"
+	do
+		if "$match_function" "$branch" "$pattern"
+		then
+			return
+		fi
+	done
+
+	return 1
+}
+
+
+matcher-remote-branch-name()
+{
+	local project_path=$1
+	local match_function=$2
+	local pattern=$3
+
+	local branches=$(repository-remote-branch-list "$project_path")
+	local branch
+	for branch in "${branches[@]}"
+	do
+		if "$match_function" "$branch" "$pattern"
+		then
+			return
+		fi
+	done
+
+	return 1
+}
+
+
+matcher-branch-name()
+{
+	local project_path=$1
+	local match_function=$2
+	local pattern=$3
+
+	local branches=$(repository-branch-list "$project_path")
+	local branch
+	for branch in "${branches[@]}"
+	do
+		if "$match_function" "$branch" "$pattern"
+		then
+			return
+		fi
+	done
+
+	return 1
+}
+
+
+matcher-uncommited-changes()
 {
 	local project_path=$1
 
@@ -509,7 +652,7 @@ project-has-uncommited-changes()
 }
 
 
-project-do-not-match-detached-head()
+matcher-head-attached()
 {
 	local project_path=$1
 
@@ -517,16 +660,28 @@ project-do-not-match-detached-head()
 }
 
 
+matcher-head-detached()
+{
+	local project_path=$1
+
+	repository-has-detached-head "$project_path"
+}
+
+
 run-matchers()
 {
 	local project_path=$1
-	local project_name_pattern=$2
-	local branch_name_pattern=$3
-	local matchers=($4)
 
-	for matcher in "${MATCHERS[@]}"
+	local index
+	for (( index = 0; index < ${#MATCHERS[@]}; ++index ))
 	do
-		"$matcher" "$project_path" "$project_name_pattern" "$branch_name_pattern"
+		local matcher="${MATCHERS[$index]}"
+		local matcher_prefix="${MATCHER_PREFIXES[$index]}"
+		local match_function="${MATCH_FUNCTIONS[$index]}"
+		local pattern="${MATCHER_PATTERNS[$index]}"
+
+		"$matcher" "$project_path" "$match_function" "$pattern"
+		"$matcher_prefix" $?
 		if [ $? != 0 ]
 		then
 			return 1
@@ -560,7 +715,7 @@ prompt-yes-no()
 	do
 		local action
 		printf "$prompt "
-		read -n 1 action
+		read action
 		printf '\n'
 		case $action in
 			y)
@@ -637,13 +792,11 @@ install-completion-script()
 }
 
 
-cache-workspace-paths-and-names()
+cache-project-paths()
 {
-	local workspace_project_paths_cache_path=$1
-	local workspace_project_list_cache_path=$2
-	local workspace_path=$3
+	local cache_path=$1
+	local workspace_path=$2
 
-	# project paths
 	local git_dirs=($(find "$workspace_path" '!' -path '*attic*' -type d -name '.git'))
 	local project_paths=()
 	local git_dir
@@ -652,7 +805,16 @@ cache-workspace-paths-and-names()
 		project_paths+=("$(dirname "$git_dir")")
 	done
 
-	# project names
+	printf '%s\n' "${project_paths[@]}" > "$cache_path"
+}
+
+
+cache-project-names()
+{
+	local cache_path=$1
+	local project_paths=("${@:2}")
+
+	# collect project names
 	local project_list=()
 	local project_path
 	for project_path in "${project_paths[@]}"
@@ -661,6 +823,7 @@ cache-workspace-paths-and-names()
 		project_list+=("$project_name")
 	done
 
+	# split project names into tokens and store them with project names
 	local parts=()
 	local project_name
 	for project_name in "${project_list[@]}"
@@ -671,16 +834,25 @@ cache-workspace-paths-and-names()
 	done
 	project_list+=("${parts[@]}")
 
-	printf '%s\n' "${project_paths[@]}" > "$WORKSPACE_PROJECT_PATHS_PATH"
-	printf '%s\n' "${project_list[@]}" | sort | uniq > "$WORKSPACE_PROJECT_LIST_PATH"
+	printf '%s\n' "${project_list[@]}" | sort | uniq > "$cache_path"
 }
 
 
-cache-branch-list()
+cache-branches()
 {
 	local cache_path=$1
-	local branch_list=("${@:2}")
+	local branch_lister=$2
+	local project_paths=("${@:3}")
 
+	# collect branches
+	local branch_list=()
+	local path
+	for path in "${project_paths[@]}"
+	do
+		branch_list+=($("$branch_lister" "$path"))
+	done
+
+	# split branch names into tokens and store them with branch names
 	local tokens=()
 	local branch
 	for branch in "${branch_list[@]}"
@@ -689,14 +861,6 @@ cache-branch-list()
 		IFS='/' read -ra components <<< "$branch"
 
 		tokens+=("${components[@]}")
-
-		local component
-		for component in "${components[@]}"
-		do
-			local words
-			IFS='-_' read -ra words <<< "$component"
-			tokens+=("${words[@]}")
-		done
 	done
 	branch_list+=("${tokens[@]}")
 
@@ -704,19 +868,43 @@ cache-branch-list()
 }
 
 
-cache-branches()
+cache-workspace-info()
 {
-	local cache_path=$1
-	local project_paths=("${@:2}")
+	local workspace_path=$1
+	local workspace_cache_dir_name=$2
+	local workspace_project_paths_file_name=$3
+	local workspace_project_list_file_name=$4
+	local workspace_current_branch_list_file_name=$5
+	local workspace_local_branch_list_file_name=$6
+	local workspace_remote_branch_list_file_name=$7
+	local workspace_branch_list_file_name=$8
 
-	local branch_list=()
-	local path
-	for path in "${project_paths[@]}"
-	do
-		branch_list+=($(repository-raw-branch-list "$path"))
-	done
+	local workspace_cache_dir_path="$workspace_path/$workspace_cache_dir_name"
+	if [ ! -d "$workspace_cache_dir_path" ]
+	then
+		mkdir "$workspace_cache_dir_path"
+		if [ $? != 0 ]
+		then
+			printf-error 'failed to create "%s" directory' "$workspace_cache_dir_path"
+			return 1
+		fi
+	fi
 
-	cache-branch-list "$cache_path" "${branch_list[@]}"
+	local workspace_project_paths_path="$workspace_cache_dir_path/$workspace_project_paths_file_name"
+	local workspace_project_list_path="$workspace_cache_dir_path/$workspace_project_list_file_name"
+	local workspace_current_branch_list_path="$workspace_cache_dir_path/$workspace_current_branch_list_file_name"
+	local workspace_local_branch_list_path="$workspace_cache_dir_path/$workspace_local_branch_list_file_name"
+	local workspace_remote_branch_list_path="$workspace_cache_dir_path/$workspace_remote_branch_list_file_name"
+	local workspace_branch_list_path="$workspace_cache_dir_path/$workspace_branch_list_file_name"
+
+	cache-project-paths "$workspace_project_paths_path" "$workspace_path"
+
+	local project_paths=($(cat "$workspace_project_paths_path"))
+	cache-project-names "$workspace_project_list_path" "${project_paths[@]}"
+	cache-branches "$workspace_current_branch_list_path" 'repository-current-branch' "${project_paths[@]}"
+	cache-branches "$workspace_local_branch_list_path" 'repository-local-branch-list' "${project_paths[@]}"
+	cache-branches "$workspace_remote_branch_list_path" 'repository-remote-branch-list' "${project_paths[@]}"
+	cache-branches "$workspace_branch_list_path" 'repository-branch-list' "${project_paths[@]}"
 }
 
 
@@ -725,7 +913,7 @@ prompt-user-to-select-project-implementation()
 	local project_path=$1
 	local prompt=$2
 
-	repository-status "$project_path"
+	repository-status-pretty "$project_path"
 	printf '\n'
 	prompt-yes-no "\e[1;34m$prompt\e[0m"
 }
@@ -744,7 +932,7 @@ show-repositories-status()
 	local path
 	for path in "${repository_paths[@]}"
 	do
-		repository-status "$path"
+		repository-status-pretty "$path"
 		printf '\n'
 	done
 }
@@ -774,6 +962,12 @@ start-bash()
 
 start-gnome-terminal()
 {
+	if ! command-exists 'gnome-terminal'
+	then
+		printf-error 'gnome-terminal is not installed'
+		exit 1
+	fi
+
 	local project_paths=("$@")
 
 	local selected_paths=()
@@ -799,6 +993,12 @@ start-gnome-terminal()
 
 start-tmux()
 {
+	if ! command-exists 'tmux'
+	then
+		printf-error 'tmux is not installed'
+		exit 1
+	fi
+
 	local project_paths=("$@")
 
 	local session_name=$(basename "$PROJECT_PATH")
@@ -1023,21 +1223,9 @@ validate-options()
 {
 	local command=$1
 
-	if ! exclusive $OPTION_STRICT_MATCH $OPTION_REGEX_MATCH
-	then
-		printf-error 'you can specify only one type of pattern match'
-		return 1
-	fi
-
 	if ! exclusive $OPTION_GNOME_TABS $OPTION_TMUX
 	then
 		printf-error 'you can'"'"'t specify both Gnome Terminal tabs and tmux panels'
-		return 1
-	fi
-
-	if [ -z $OPTION_PROJECT_NAME_PATTERN ] && [ -z $OPTION_BRANCH_NAME_PATTERN ] && $OPTION_NEGATE_PATTERN
-	then
-		printf-error 'there is no pattern to negate'
 		return 1
 	fi
 
@@ -1105,9 +1293,7 @@ apply-options()
 
 		cache-workspace-info)
 			printf-message 'Caching workspace info...'
-			cache-workspace-paths-and-names "$WORKSPACE_PROJECT_PATHS_PATH" "$WORKSPACE_PROJECT_LIST_PATH" "$PROJECT_PATH"
-			local project_paths=($(cat "$WORKSPACE_PROJECT_PATHS_PATH"))
-			cache-branches "$WORKSPACE_BRANCH_LIST_PATH" "${project_paths[@]}"
+			cache-workspace-info "$PROJECT_PATH" "$WORKSPACE_CACHE_DIR_NAME" "$WORKSPACE_PROJECT_PATHS_FILE_NAME" "$WORKSPACE_PROJECT_LIST_FILE_NAME" "$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME" "$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME" "$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME" "$WORKSPACE_BRANCH_LIST_FILE_NAME"
 			exit
 			;;
 
@@ -1125,45 +1311,44 @@ apply-options()
 	esac
 
 	PROJECT_PATH=$(normalize-path "$OPTION_PROJECT_PATH")
-	PROJECT_NAME_PATTERN="$OPTION_PROJECT_NAME_PATTERN"
-	BRANCH_NAME_PATTERN="$OPTION_BRANCH_NAME_PATTERN"
 
 	if $OPTION_STRICT_MATCH
 	then
 		MATCH_PATTERN_FUNCTION=strict-match
-	elif $OPTION_REGEX_MATCH
-	then
-		MATCH_PATTERN_FUNCTION=regex-match
-	fi
-
-	if $OPTION_NEGATE_PATTERN
-	then
-		CONDITION_PREFIX_FUNCTION=negate
-	fi
-
-	if [ -n "$OPTION_PROJECT_NAME_PATTERN" ]
-	then
-		MATCHERS+=('project-match-name')
-	fi
-
-	if [ -n "$OPTION_BRANCH_NAME_PATTERN" ]
-	then
-		MATCHERS+=('project-match-branch')
-	fi
-
-	if $OPTION_MATCH_CURRENT_BRANCH
-	then
-		REPOSITORY_FILTER_BRANCHES_FUNCTION=repository-current-branch-name
 	fi
 
 	if $OPTION_UNCOMMITED
 	then
-		MATCHERS+=('project-has-uncommited-changes')
+		MATCHERS+=('matcher-uncommited-changes')
+		MATCHER_PREFIXES+=('straight')
+		MATCH_FUNCTIONS+=('inclusion-match')
+		MATCHER_PATTERNS+=('')
 	fi
 
 	if $OPTION_IGNORE_DETACHED
 	then
-		MATCHERS+=('project-do-not-match-detached-head')
+		MATCHERS+=('matcher-head-attached')
+		MATCHER_PREFIXES+=('straight')
+		MATCH_FUNCTIONS+=('inclusion-match')
+		MATCHER_PATTERNS+=('')
+	fi
+
+	if $OPTION_NEGATE_ALL_PATTERNS
+	then
+		local index
+		for (( index = 0; index < ${#MATCHER_PREFIXES[@]}; ++index ))
+		do
+			MATCHER_PREFIXES[$index]='negate'
+		done
+	fi
+
+	if $OPTION_STRICT_ALL_PATTERNS
+	then
+		local index
+		for (( index = 0; index < ${#MATCH_FUNCTIONS[@]}; ++index ))
+		do
+			MATCH_FUNCTIONS[$index]='strict-match'
+		done
 	fi
 
 	if $OPTION_GNOME_TABS
@@ -1236,39 +1421,10 @@ apply-options
 #
 # Main
 
-if [ -f "$WORKSPACE_BRANCH_LIST_PATH" ]
-then
-	BRANCH_NAME_LIST_OUTDATED=false
-	CHECK_BRANCH_CHANGED_FUNCTION=check-branch-changed-implementation
-else
-	BRANCH_NAME_LIST_OUTDATED=true
-	CHECK_BRANCH_CHANGED_FUNCTION=nothing
-fi
-
-
-check-branch-changed-implementation()
-{
-	local project_path=$1
-
-	local output=$(find "$project_path/.git/refs/heads/" -newer "$WORKSPACE_BRANCH_LIST_PATH")
-	if [ -n "$output" ]
-	then
-		BRANCH_NAME_LIST_OUTDATED=true
-		CHECK_BRANCH_CHANGED_FUNCTION=nothing
-	fi
-}
-
-
-check-branch-changed()
-{
-	"$CHECK_BRANCH_CHANGED_FUNCTION" "$@"
-}
-
-
 if [ ! -f "$WORKSPACE_PROJECT_PATHS_PATH" ] || [ ! -f "$WORKSPACE_PROJECT_LIST_PATH" ]
 then
 	printf-message 'Caching workspace info...'
-	cache-workspace-paths-and-names "$WORKSPACE_PROJECT_PATHS_PATH" "$WORKSPACE_PROJECT_LIST_PATH" "$PROJECT_PATH"
+	cache-workspace-info "$PROJECT_PATH" "$WORKSPACE_CACHE_DIR_NAME" "$WORKSPACE_PROJECT_PATHS_FILE_NAME" "$WORKSPACE_PROJECT_LIST_FILE_NAME" "$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME" "$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME" "$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME" "$WORKSPACE_BRANCH_LIST_FILE_NAME"
 fi
 
 project_paths=($(cat "$WORKSPACE_PROJECT_PATHS_PATH"))
@@ -1296,10 +1452,9 @@ do
 		break;
 	fi
 
-	check-branch-changed "$project_path"
-	branch_list+=($(repository-raw-branch-list "$project_path"))
+	branch_list+=($(repository-branch-list "$project_path"))
 
-	run-matchers "$project_path" "$PROJECT_NAME_PATTERN" "$BRANCH_NAME_PATTERN" "${MATCHERS[*]}"
+	run-matchers "$project_path"
 	if [ $? != 0 ]
 	then
 		continue
@@ -1310,11 +1465,6 @@ done
 
 printf-message '\n'
 
-if $BRANCH_NAME_LIST_OUTDATED
-then
-	cache-branch-list "${branch_list[@]}"
-fi
-
 if [ "${#matched_projects[@]}" == 0 ]
 then
 	printf-error 'no matched projects found'
@@ -1323,3 +1473,4 @@ fi
 
 do-job "${matched_projects[@]}"
 printf-message 'Done.'
+

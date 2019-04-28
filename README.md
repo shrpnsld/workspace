@@ -85,12 +85,15 @@ $ workspace open -x -p engine
 ### Options
 
 * `-P`, `--path <project-path>` – search path [default: current directory]
-* `-s`, `--strict` – match `<pattern>` strictly
-* `-r`, `--regex` – use `<pattern>` as regex
-* `-n`, `--negate` – negate all patterns
 * `-p`, `--project <pattern>` – project name pattern
 * `-B`, `--branch <pattern>` – current branch name pattern
-* `-b`, `--branches <pattern>` – branch name pattern for existing branches
+* `-b`, `--branches <pattern>` – branch name pattern for local branches
+* `-r`, `--remote-branches <pattern>` – branch name pattern for remote branches
+* `-a`, `--all-branches <pattern>` – branch name pattern for all branches
+* `-s`, `--strict` – match next pattern strictly
+* `-S`, `--strict-all` – match all patterns strictly
+* `-n`, `--negate` – negate next pattern
+* `-N`, `--negate-all` – negate all patterns
 * `-u`, `--uncommited` – match projects with uncommited changes
 * `-d`, `--ignore-detached` – do not match projects with detached HEAD
 * `-t`, `--tabs` – open projects in Gnome Terminal tabs
