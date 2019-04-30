@@ -627,16 +627,21 @@ cache-project-paths()
 	local cache_path=$1
 	local workspace_path=$2
 
-	local not_paths=()
+	# make '! -path <pattern>' options
+	local ignore_pattern_options=()
 	if [ -r "$CONFIG_IGNORE_PATH" ]
 	then
-		local ignore_paths_patterns=($(cat "$CONFIG_IGNORE_PATH" | sed -e 's/^/"/' -e 's/$/"/'))
-		not_paths=($(printf '! -path %s\n' "${ignore_paths_patterns[@]}"))
+		# quoting patterns to prevent asterist expansion
+		local ignored_patterns=($(grep '^[^#][^ ]*$' "$CONFIG_IGNORE_PATH" | sed -e 's/^/"/' -e 's/$/"/'))
+		for pattern in "${ignored_patterns[@]}"
+		do
+			# removing quotes, so they are not part of the pattern
+			ignore_pattern_options+=('!' '-path' "${pattern:1:${#pattern}-2}")
+		done
 	fi
 
-	echo "${not_paths[@]}"
-
-	local git_dirs=($(find "$workspace_path" "${not_paths[@]}" -type d -name '.git'))
+	# collect paths
+	local git_dirs=($(find "$workspace_path" "${ignore_pattern_options[@]}" -type d -name '.git'))
 	local project_paths=()
 	local git_dir
 	for git_dir in "${git_dirs[@]}"
