@@ -28,19 +28,32 @@ then
 fi
 
 
-PROJECT_PATH="$PWD"
+WORKSPACE_PATH="$PWD"
 
-WORKSPACE_CACHE_DIR_NAME='.workspace-cache'
-WORKSPACE_PROJECT_PATHS_FILE_NAME="project-paths"
-WORKSPACE_PROJECT_LIST_FILE_NAME="project-list"
-WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME="current-branch-list"
-WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME="local-branch-list"
-WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME="remote-branch-list"
-WORKSPACE_BRANCH_LIST_FILE_NAME="branch-list"
+WORKSPACE_INFO_DIR_NAME='.workspace-info'
+IGNORE_FILE_NAME="ignore"
+DEFAULT_COMMAND_FILE_NAME="default-command"
+PROJECT_PATHS_FILE_NAME='project-paths'
+PROJECT_LIST_FILE_NAME='project-list'
+CURRENT_BRANCH_LIST_FILE_NAME='current-branch-list'
+LOCAL_BRANCH_LIST_FILE_NAME='local-branch-list'
+REMOTE_BRANCH_LIST_FILE_NAME='remote-branch-list'
+BRANCH_LIST_FILE_NAME='branch-list'
 
-WORKSPACE_CACHE_DIR_PATH="$PROJECT_PATH/$WORKSPACE_CACHE_DIR_NAME"
-WORKSPACE_PROJECT_PATHS_PATH="$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_PROJECT_PATHS_FILE_NAME"
-WORKSPACE_PROJECT_LIST_PATH="$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_PROJECT_LIST_FILE_NAME"
+CONFIG_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/config"
+CACHE_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/cache"
+COMPLETION_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/completion"
+
+CONFIG_IGNORE_PATH="$CONFIG_DIR_PATH/$IGNORE_FILE_NAME"
+CONFIG_DEFAULT_COMMAND_PATH="$CONFIG_DIR_PATH/$DEFAULT_COMMAND_FILE_NAME"
+
+CACHE_PROJECT_PATHS_PATH="$CACHE_DIR_PATH/$PROJECT_PATHS_FILE_NAME"
+
+COMPLETION_PROJECT_LIST_PATH="$COMPLETION_DIR_PATH/$PROJECT_LIST_FILE_NAME"
+COMPLETION_CURRENT_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$CURRENT_BRANCH_LIST_FILE_NAME"
+COMPLETION_LOCAL_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$LOCAL_BRANCH_LIST_FILE_NAME"
+COMPLETION_REMOTE_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$REMOTE_BRANCH_LIST_FILE_NAME"
+COMPLETION_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$BRANCH_LIST_FILE_NAME"
 
 SCRIPT_COMMANDS=('status' 'git' 'foreach' 'open' 'cache-workspace-info' 'install-completion-script')
 
@@ -125,11 +138,11 @@ HELP_MESSAGE=\
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
 
-WORKSPACE_PROJECT_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_PROJECT_LIST_FILE_NAME"'
-WORKSPACE_CURRENT_BRANCH_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME"'
-WORKSPACE_LOCAL_BRANCH_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME"'
-WORKSPACE_REMOTE_BRANCH_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME"'
-WORKSPACE_BRANCH_LIST_FILE_PATH='"$WORKSPACE_CACHE_DIR_NAME/$WORKSPACE_BRANCH_LIST_FILE_NAME"'
+_WORKSPACE_COMPLETION_PROJECT_LIST_PATH='"$COMPLETION_PROJECT_LIST_PATH"'
+_WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH='"$COMPLETION_CURRENT_BRANCH_LIST_PATH"'
+_WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH='"$COMPLETION_LOCAL_BRANCH_LIST_PATH"'
+_WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH='"$COMPLETION_REMOTE_BRANCH_LIST_PATH"'
+_WORKSPACE_COMPLETION_BRANCH_LIST_PATH='"$COMPLETION_BRANCH_LIST_PATH"'
 
 
 _workspace-completion-is-short-option()
@@ -152,35 +165,35 @@ _workspace-completion()
 
 	if ([ "$argument" == "--project" ] \
 		|| (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "p" ])) \
-		&& [ -f "$WORKSPACE_PROJECT_LIST_FILE_PATH" ]
+		&& [ -f "$_WORKSPACE_COMPLETION_PROJECT_LIST_PATH" ]
 	then
-		local projects=$(cat "$WORKSPACE_PROJECT_LIST_FILE_PATH")
+		local projects=$(cat "$_WORKSPACE_COMPLETION_PROJECT_LIST_PATH")
 		COMPREPLY=($(compgen -W "$projects" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
 
 	if ([ "$argument" == "--branch" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "B" ])) \
-		&& [ -f "$WORKSPACE_CURRENT_BRANCH_LIST_FILE_PATH" ]
+		&& [ -f "$_WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH" ]
 	then
-		local branches=$(cat "$WORKSPACE_CURRENT_BRANCH_LIST_FILE_PATH")
+		local branches=$(cat "$_WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH")
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	elif ([ "$argument" == "--branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "b" ])) \
-		&& [ -f "$WORKSPACE_LOCAL_BRANCH_LIST_FILE_PATH" ]
+		&& [ -f "$_WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH" ]
 	then
-		local branches=$(cat "$WORKSPACE_LOCAL_BRANCH_LIST_FILE_PATH")
+		local branches=$(cat "$_WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH")
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	elif ([ "$argument" == "--remote-branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "r" ])) \
-		&& [ -f "$WORKSPACE_REMOTE_BRANCH_LIST_FILE_PATH" ]
+		&& [ -f "$_WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH" ]
 	then
-		local branches=$(cat "$WORKSPACE_REMOTE_BRANCH_LIST_FILE_PATH")
+		local branches=$(cat "$_WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH")
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	elif ([ "$argument" == "--all-branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "a" ])) \
-		&& [ -f "$WORKSPACE_BRANCH_LIST_FILE_PATH" ]
+		&& [ -f "$_WORKSPACE_COMPLETION_BRANCH_LIST_PATH" ]
 	then
-		local branches=$(cat "$WORKSPACE_BRANCH_LIST_FILE_PATH")
+		local branches=$(cat "$_WORKSPACE_COMPLETION_BRANCH_LIST_PATH")
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
@@ -204,7 +217,7 @@ DO_JOB_FUNCTION=''
 # Options
 
 OPTION_COMMAND=''
-OPTION_PROJECT_PATH=''
+OPTION_WORKSPACE_PATH=''
 OPTION_NEGATE_NEXT_PATTERN=false
 OPTION_NEGATE_ALL_PATTERNS=false
 OPTION_STRICT_NEXT_PATTERN=false
@@ -614,7 +627,16 @@ cache-project-paths()
 	local cache_path=$1
 	local workspace_path=$2
 
-	local git_dirs=($(find "$workspace_path" '!' -path '*attic*' -type d -name '.git'))
+	local not_paths=()
+	if [ -r "$CONFIG_IGNORE_PATH" ]
+	then
+		local ignore_paths_patterns=($(cat "$CONFIG_IGNORE_PATH" | sed -e 's/^/"/' -e 's/$/"/'))
+		not_paths=($(printf '! -path %s\n' "${ignore_paths_patterns[@]}"))
+	fi
+
+	echo "${not_paths[@]}"
+
+	local git_dirs=($(find "$workspace_path" "${not_paths[@]}" -type d -name '.git'))
 	local project_paths=()
 	local git_dir
 	for git_dir in "${git_dirs[@]}"
@@ -687,24 +709,28 @@ cache-branches()
 
 cache-workspace-info()
 {
-	if [ ! -d "$WORKSPACE_CACHE_DIR_PATH" ]
+	mkdir -p "$CACHE_DIR_PATH"
+	if [ $? != 0 ]
 	then
-		mkdir "$WORKSPACE_CACHE_DIR_PATH"
-		if [ $? != 0 ]
-		then
-			printf-error 'failed to create "%s" directory' "$WORKSPACE_CACHE_DIR_PATH"
-			return 1
-		fi
+		printf-error 'failed to create "%s" directory' "$CACHE_DIR_PATH"
+		return 1
 	fi
 
-	cache-project-paths "$WORKSPACE_PROJECT_PATHS_PATH" "$PROJECT_PATH"
+	cache-project-paths "$CACHE_PROJECT_PATHS_PATH" "$WORKSPACE_PATH"
 
-	local project_paths=($(cat "$WORKSPACE_PROJECT_PATHS_PATH"))
-	cache-project-names "$WORKSPACE_PROJECT_LIST_PATH" "${project_paths[@]}"
-	cache-branches "$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME" 'repository-current-branch' "${project_paths[@]}"
-	cache-branches "$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME" 'repository-local-branch-list' "${project_paths[@]}"
-	cache-branches "$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME" 'repository-remote-branch-list' "${project_paths[@]}"
-	cache-branches "$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_BRANCH_LIST_FILE_NAME" 'repository-branch-list' "${project_paths[@]}"
+	mkdir -p "$COMPLETION_DIR_PATH"
+	if [ $? != 0 ]
+	then
+		printf-error 'failed to create "%s" directory' "$COMPLETION_DIR_PATH"
+		return 1
+	fi
+
+	local project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
+	cache-project-names "$COMPLETION_PROJECT_LIST_PATH" "${project_paths[@]}"
+	cache-branches "$COMPLETION_CURRENT_BRANCH_LIST_PATH" 'repository-current-branch' "${project_paths[@]}"
+	cache-branches "$COMPLETION_LOCAL_BRANCH_LIST_PATH" 'repository-local-branch-list' "${project_paths[@]}"
+	cache-branches "$COMPLETION_REMOTE_BRANCH_LIST_PATH" 'repository-remote-branch-list' "${project_paths[@]}"
+	cache-branches "$COMPLETION_BRANCH_LIST_PATH" 'repository-branch-list' "${project_paths[@]}"
 }
 
 
@@ -801,7 +827,7 @@ start-tmux()
 		fi
 	done
 
-	local session_name=$(basename "$PROJECT_PATH")
+	local session_name=$(basename "$WORKSPACE_PATH")
 	tmux new-session -d -s "$session_name" -c "${selected_paths[0]}"
 
 	for path in "${selected_paths[@]:1}"
@@ -895,7 +921,7 @@ parse-option()
 
 	case "$option" in
 		W|workspace-path)
-			OPTION_PROJECT_PATH="$value"
+			OPTION_WORKSPACE_PATH="$value"
 			return 1
 			;;
 
@@ -1083,9 +1109,9 @@ validate-options()
 		return 1
 	fi
 
-	if [ -n "$OPTION_PROJECT_PATH" ] && [ ! -d "$OPTION_PROJECT_PATH" ]
+	if [ -n "$OPTION_WORKSPACE_PATH" ] && [ ! -d "$OPTION_WORKSPACE_PATH" ]
 	then
-		printf-error "'"'%s'"'"' does not exist' "$OPTION_PROJECT_PATH"
+		printf-error "'"'%s'"'"' does not exist' "$OPTION_WORKSPACE_PATH"
 		exit 1
 	fi
 }
@@ -1130,7 +1156,7 @@ apply-parameters()
 			;;
 	esac
 
-	PROJECT_PATH=$(normalize-path "$OPTION_PROJECT_PATH")
+	WORKSPACE_PATH=$(normalize-path "$OPTION_WORKSPACE_PATH")
 
 	if $OPTION_UNCOMMITED
 	then
@@ -1223,13 +1249,13 @@ apply-parameters
 #
 # Main
 
-if [ ! -d "$WORKSPACE_CACHE_DIR_PATH" ]
+if [ ! -d "$CACHE_DIR_PATH" ]
 then
 	printf-message 'Caching workspace info...'
 	cache-workspace-info
 fi
 
-project_paths=($(cat "$WORKSPACE_PROJECT_PATHS_PATH"))
+project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
 project_count="${#project_paths[@]}"
 if [ $project_count == 0 ]
 then
