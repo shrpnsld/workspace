@@ -9,25 +9,16 @@ RED_TEXT='\e[0;31m'
 NO_STYLE_TEXT='\e[0m'
 ERROR_PREFIX="$SCRIPT_NAME"' error:'
 
-
-printf-stderr()
-{
-	printf "$@" >&2
-}
-
-
 printf-error()
 {
-	printf-stderr "$ERROR_PREFIX"
-	printf-stderr " $@"
-	printf-stderr '\n\n'
+	printf "$ERROR_PREFIX" >&2
+	printf " $@\n\n" >&2
 }
 
 
 printf-message()
 {
-	printf "$@"
-	printf '\n'
+	printf "$@\n"
 }
 
 
@@ -47,13 +38,9 @@ WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME="local-branch-list"
 WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME="remote-branch-list"
 WORKSPACE_BRANCH_LIST_FILE_NAME="branch-list"
 
-WORKSPACE_CACHE_PATH="$PROJECT_PATH/$WORKSPACE_CACHE_DIR_NAME"
-WORKSPACE_PROJECT_PATHS_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_PROJECT_PATHS_FILE_NAME"
-WORKSPACE_PROJECT_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_PROJECT_LIST_FILE_NAME"
-WORKSPACE_CURRENT_BRANCH_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME"
-WORKSPACE_LOCAL_BRANCH_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME"
-WORKSPACE_REMOTE_BRANCH_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME"
-WORKSPACE_BRANCH_LIST_PATH="$WORKSPACE_CACHE_PATH/$WORKSPACE_BRANCH_LIST_FILE_NAME"
+WORKSPACE_CACHE_DIR_PATH="$PROJECT_PATH/$WORKSPACE_CACHE_DIR_NAME"
+WORKSPACE_PROJECT_PATHS_PATH="$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_PROJECT_PATHS_FILE_NAME"
+WORKSPACE_PROJECT_LIST_PATH="$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_PROJECT_LIST_FILE_NAME"
 
 SCRIPT_COMMANDS=('status' 'git' 'foreach' 'open' 'cache-workspace-info' 'install-completion-script')
 
@@ -157,7 +144,7 @@ _workspace-completion()
 {
 	if [ $COMP_CWORD == 1 ]
 	then
-		COMPREPLY=($(compgen -W "status git foreach open cache-workspace-info install-completion-script" "${COMP_WORDS[1]}"))
+		COMPREPLY=($(compgen -W "'"${SCRIPT_COMMANDS[@]}"'" "${COMP_WORDS[1]}"))
 		return
 	fi
 
@@ -202,8 +189,6 @@ _workspace-completion()
 complete -F _workspace-completion '"$SCRIPT_NAME"
 
 
-MATCH_PATTERN_FUNCTION=inclusion-match
-
 MATCHERS=()
 MATCHER_PREFIXES=()
 MATCH_FUNCTIONS=()
@@ -220,7 +205,6 @@ DO_JOB_FUNCTION=''
 
 OPTION_COMMAND=''
 OPTION_PROJECT_PATH=''
-OPTION_STRICT_MATCH=false
 OPTION_NEGATE_NEXT_PATTERN=false
 OPTION_NEGATE_ALL_PATTERNS=false
 OPTION_STRICT_NEXT_PATTERN=false
@@ -261,12 +245,6 @@ add-matcher()
 
 #
 # Option dependent functions
-
-match-pattern()
-{
-	"$MATCH_PATTERN_FUNCTION" "$@"
-}
-
 
 prompt-user-to-select-project()
 {
@@ -619,20 +597,17 @@ array-contains()
 }
 
 
-#
-# Jobs
-
-install-completion-script()
+fill-array()
 {
-	local bash_completion_dir='/etc/bash_completion.d/'
-	if ! [ -w "$bash_completion_dir" ]
-	then
-		return 1
-	fi
+	local size=$1
+	local value=$2
 
-	printf '%s\n' "$BASH_COMPLETION_SCRIPT" > "$bash_completion_dir/$SCRIPT_NAME"
+	printf '%.0s\n' "$value" {1..${#MATCH_FUNCTIONS[@]}}
 }
 
+
+#
+# Jobs
 
 cache-project-paths()
 {
@@ -712,41 +687,24 @@ cache-branches()
 
 cache-workspace-info()
 {
-	local workspace_path=$1
-	local workspace_cache_dir_name=$2
-	local workspace_project_paths_file_name=$3
-	local workspace_project_list_file_name=$4
-	local workspace_current_branch_list_file_name=$5
-	local workspace_local_branch_list_file_name=$6
-	local workspace_remote_branch_list_file_name=$7
-	local workspace_branch_list_file_name=$8
-
-	local workspace_cache_dir_path="$workspace_path/$workspace_cache_dir_name"
-	if [ ! -d "$workspace_cache_dir_path" ]
+	if [ ! -d "$WORKSPACE_CACHE_DIR_PATH" ]
 	then
-		mkdir "$workspace_cache_dir_path"
+		mkdir "$WORKSPACE_CACHE_DIR_PATH"
 		if [ $? != 0 ]
 		then
-			printf-error 'failed to create "%s" directory' "$workspace_cache_dir_path"
+			printf-error 'failed to create "%s" directory' "$WORKSPACE_CACHE_DIR_PATH"
 			return 1
 		fi
 	fi
 
-	local workspace_project_paths_path="$workspace_cache_dir_path/$workspace_project_paths_file_name"
-	local workspace_project_list_path="$workspace_cache_dir_path/$workspace_project_list_file_name"
-	local workspace_current_branch_list_path="$workspace_cache_dir_path/$workspace_current_branch_list_file_name"
-	local workspace_local_branch_list_path="$workspace_cache_dir_path/$workspace_local_branch_list_file_name"
-	local workspace_remote_branch_list_path="$workspace_cache_dir_path/$workspace_remote_branch_list_file_name"
-	local workspace_branch_list_path="$workspace_cache_dir_path/$workspace_branch_list_file_name"
+	cache-project-paths "$WORKSPACE_PROJECT_PATHS_PATH" "$PROJECT_PATH"
 
-	cache-project-paths "$workspace_project_paths_path" "$workspace_path"
-
-	local project_paths=($(cat "$workspace_project_paths_path"))
-	cache-project-names "$workspace_project_list_path" "${project_paths[@]}"
-	cache-branches "$workspace_current_branch_list_path" 'repository-current-branch' "${project_paths[@]}"
-	cache-branches "$workspace_local_branch_list_path" 'repository-local-branch-list' "${project_paths[@]}"
-	cache-branches "$workspace_remote_branch_list_path" 'repository-remote-branch-list' "${project_paths[@]}"
-	cache-branches "$workspace_branch_list_path" 'repository-branch-list' "${project_paths[@]}"
+	local project_paths=($(cat "$WORKSPACE_PROJECT_PATHS_PATH"))
+	cache-project-names "$WORKSPACE_PROJECT_LIST_PATH" "${project_paths[@]}"
+	cache-branches "$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME" 'repository-current-branch' "${project_paths[@]}"
+	cache-branches "$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME" 'repository-local-branch-list' "${project_paths[@]}"
+	cache-branches "$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME" 'repository-remote-branch-list' "${project_paths[@]}"
+	cache-branches "$WORKSPACE_CACHE_DIR_PATH/$WORKSPACE_BRANCH_LIST_FILE_NAME" 'repository-branch-list' "${project_paths[@]}"
 }
 
 
@@ -756,14 +714,7 @@ prompt-user-to-select-project-implementation()
 	local prompt=$2
 
 	repository-status-pretty "$project_path"
-	printf '\n'
-	prompt-yes-no "\e[1;34m$prompt\e[0m"
-}
-
-
-show-help()
-{
-	printf-message "$HELP_MESSAGE"
+	prompt-yes-no "\n\e[1;34m$prompt\e[0m"
 }
 
 
@@ -821,7 +772,6 @@ start-gnome-terminal()
 	done
 
 	declare -a gnome_terminal_options
-
 	for path in "${selected_paths[@]}"
 	do
 		gnome_terminal_options+=("--tab --working-directory ${path}")
@@ -841,8 +791,6 @@ start-tmux()
 
 	local project_paths=("$@")
 
-	local session_name=$(basename "$PROJECT_PATH")
-
 	local selected_paths=()
 	local path
 	for path in "${project_paths[@]}"
@@ -853,6 +801,7 @@ start-tmux()
 		fi
 	done
 
+	local session_name=$(basename "$PROJECT_PATH")
 	tmux new-session -d -s "$session_name" -c "${selected_paths[0]}"
 
 	for path in "${selected_paths[@]:1}"
@@ -887,8 +836,7 @@ foreach-project()
 		bash -c "cd $path; ${FOREACH_ARGUMENTS[*]}"
 		if [ $? != 0 ]
 		then
-			printf '\n'
-			prompt-yes-no '\e[1;31mCommand exited with non-zero code. Do you want to open this project in bash? (y/n)\e[0m'
+			prompt-yes-no '\n\e[1;31mCommand exited with non-zero code. Do you want to open this project in bash? (y/n)\e[0m'
 			if [ $? == 0 ]
 			then
 				bash -c "cd $path; bash"
@@ -909,14 +857,6 @@ foreach-project-git()
 
 #
 # Parameters and options parsing/validating
-
-is-option()
-{
-	local string=$1
-
-	[ "${string:0:1}" == '-' ]
-}
-
 
 PARAM_TYPE_SHORT_OPTION_LIST=1
 PARAM_TYPE_LONG_OPTION=2
@@ -964,7 +904,7 @@ parse-option()
 			return 1
 			;;
 
-		b|branch)
+		B|branch)
 			add-matcher 'matcher-current-branch-name' "$value"
 			return 1
 			;;
@@ -1036,7 +976,7 @@ parse-parameters()
 
 	if [ -z "$command" ] || [ "$command" == '-h' ] || [ "$command" == '--help' ]
 	then
-		show-help
+		printf-message "$HELP_MESSAGE"
 		return 2
 	fi
 
@@ -1113,46 +1053,35 @@ validate-options()
 {
 	local command=$1
 
-	if ! exclusive $OPTION_GNOME_TABS $OPTION_TMUX
-	then
-		printf-error 'you can'"'"'t specify both Gnome Terminal tabs and tmux panels'
-		return 1
-	fi
-
 	case $command in
 		status)
-			if $OPTION_GNOME_TABS
+			if $OPTION_GNOME_TABS || $OPTION_TMUX
 			then
-				printf-error "'"'-t'"'"' or '"'"'--tabs'"'"' should be used with '"'"'open'"'"' action'
-				return 1
-			fi
-
-			if $OPTION_TMUX
-			then
-				printf-error "'"'-x'"'"' or '"'"'--tmux'"'"' should be used with '"'"'open'"'"' action'
+				printf-error '"-t", "-x" ("--tabs", "--tmux") should be used with "open" command'
 				return 1
 			fi
 
 			if $OPTION_INTERACTIVE
 			then
-				printf-error "'"'-i'"'"' or '"'"'--interactive'"'"' should be used with '"'"'open'"'"' action'
+				printf-error '"-i" ("--interactive") should be used with "open", "foreach" or "git" command'
 				return 1
 			fi
 			;;
 
 		git|foreach)
-			if $OPTION_GNOME_TABS
+			if $OPTION_GNOME_TABS || $OPTION_TMUX
 			then
-				printf-error "'"'-t'"'"' or '"'"'--tabs'"'"' should be used with '"'"'open'"'"' action'
-				return 1
-			fi
-			if $OPTION_TMUX
-			then
-				printf-error "'"'-x'"'"' or '"'"'--tmux'"'"' should be used with '"'"'open'"'"' action'
+				printf-error '"-t", "-x" ("--tabs", "--tmux") should be used with "open" command'
 				return 1
 			fi
 			;;
 	esac
+
+	if ! exclusive $OPTION_GNOME_TABS $OPTION_TMUX
+	then
+		printf-error 'you can'"'"'t specify both Gnome Terminal tabs and tmux panels'
+		return 1
+	fi
 
 	if [ -n "$OPTION_PROJECT_PATH" ] && [ ! -d "$OPTION_PROJECT_PATH" ]
 	then
@@ -1162,7 +1091,7 @@ validate-options()
 }
 
 
-apply-options()
+apply-parameters()
 {
 	case $OPTION_COMMAND in
 		status)
@@ -1183,29 +1112,25 @@ apply-options()
 
 		cache-workspace-info)
 			printf-message 'Caching workspace info...'
-			cache-workspace-info "$PROJECT_PATH" "$WORKSPACE_CACHE_DIR_NAME" "$WORKSPACE_PROJECT_PATHS_FILE_NAME" "$WORKSPACE_PROJECT_LIST_FILE_NAME" "$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME" "$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME" "$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME" "$WORKSPACE_BRANCH_LIST_FILE_NAME"
+			cache-workspace-info
 			exit
 			;;
 
 		install-completion-script)
-			install-completion-script
-			if [ $? == 1 ]
+			local bash_completion_dir='/etc/bash_completion.d/'
+			if ! [ -w "$bash_completion_dir" ]
 			then
 				printf-error 'permission denied'
 				exit 1
 			fi
 
+			printf '%s\n' "$BASH_COMPLETION_SCRIPT" > "$bash_completion_dir/$SCRIPT_NAME"
 			printf-message 'please restart shell'
 			exit
 			;;
 	esac
 
 	PROJECT_PATH=$(normalize-path "$OPTION_PROJECT_PATH")
-
-	if $OPTION_STRICT_MATCH
-	then
-		MATCH_PATTERN_FUNCTION=strict-match
-	fi
 
 	if $OPTION_UNCOMMITED
 	then
@@ -1225,20 +1150,12 @@ apply-options()
 
 	if $OPTION_NEGATE_ALL_PATTERNS
 	then
-		local index
-		for (( index = 0; index < ${#MATCHER_PREFIXES[@]}; ++index ))
-		do
-			MATCHER_PREFIXES[$index]='negate'
-		done
+		MATCH_PREFIXES=($(fill-array ${#MATCH_FUNCTIONS[@]} 'negate'))
 	fi
 
 	if $OPTION_STRICT_ALL_PATTERNS
 	then
-		local index
-		for (( index = 0; index < ${#MATCH_FUNCTIONS[@]}; ++index ))
-		do
-			MATCH_FUNCTIONS[$index]='strict-match'
-		done
+		MATCH_FUNCTIONS=($(fill-array ${#MATCH_FUNCTIONS[@]} 'strict-match'))
 	fi
 
 	if $OPTION_GNOME_TABS
@@ -1254,12 +1171,12 @@ apply-options()
 #
 # Progress
 
+PROGRESS_BAR_CHARACTER='#'
+PROGRESS_BAR_SIZE=20
+PROGRESS_BAR_FILL=$(printf "$PROGRESS_BAR_CHARACTER"'%.0s' $(seq 1 $PROGRESS_BAR_SIZE))
+
 make-progress-string()
 {
-	PROGRESS_BAR_CHARACTER='#'
-	PROGRESS_BAR_SIZE=20
-	PROGRESS_BAR_FILL=$(printf "$PROGRESS_BAR_CHARACTER"'%.0s' $(seq 1 $PROGRESS_BAR_SIZE))
-
 	local current=$1
 	local total=$2
 
@@ -1294,27 +1211,22 @@ fi
 #
 # Script parameters
 
-parse-parameters "$@"
+parse-parameters "$@" && validate-options $1
 if [ $? != 0 ]
 then
 	exit 1
 fi
 
-if ! validate-options $1
-then
-	exit 1
-fi
-
-apply-options
+apply-parameters
 
 
 #
 # Main
 
-if [ ! -f "$WORKSPACE_PROJECT_PATHS_PATH" ] || [ ! -f "$WORKSPACE_PROJECT_LIST_PATH" ]
+if [ ! -d "$WORKSPACE_CACHE_DIR_PATH" ]
 then
 	printf-message 'Caching workspace info...'
-	cache-workspace-info "$PROJECT_PATH" "$WORKSPACE_CACHE_DIR_NAME" "$WORKSPACE_PROJECT_PATHS_FILE_NAME" "$WORKSPACE_PROJECT_LIST_FILE_NAME" "$WORKSPACE_CURRENT_BRANCH_LIST_FILE_NAME" "$WORKSPACE_LOCAL_BRANCH_LIST_FILE_NAME" "$WORKSPACE_REMOTE_BRANCH_LIST_FILE_NAME" "$WORKSPACE_BRANCH_LIST_FILE_NAME"
+	cache-workspace-info
 fi
 
 project_paths=($(cat "$WORKSPACE_PROJECT_PATHS_PATH"))
@@ -1325,16 +1237,10 @@ then
 	exit 1
 fi
 
-declare -a matched_projects
-declare -a branch_list
-index=( -1 )
-
 printf-message 'Scanning projects...'
-while :
+declare -a matched_projects
+for (( index = 0; ; ++index ))
 do
-	(( ++index ))
-	project_path="${project_paths[$index]}"
-
 	print-progress-string $index $project_count
 
 	if [ $index == $project_count ]
@@ -1342,8 +1248,7 @@ do
 		break;
 	fi
 
-	branch_list+=($(repository-branch-list "$project_path"))
-
+	project_path="${project_paths[$index]}"
 	run-matchers "$project_path"
 	if [ $? != 0 ]
 	then
@@ -1357,8 +1262,8 @@ printf-message '\n'
 
 if [ "${#matched_projects[@]}" == 0 ]
 then
-	printf-error 'no matched projects found'
-	exit 1
+	printf-message 'no matching projects found'
+	exit
 fi
 
 do-job "${matched_projects[@]}"
