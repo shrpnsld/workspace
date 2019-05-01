@@ -103,11 +103,44 @@ $ workspace open -x -p engine
 
 
 
+# Configuration
+
+### Ignoring paths
+
+You can ignore some paths by listing glob patterns in `.workspace-info/config/ignore`:
+
+```bash
+# ignoring external modules
+*external*
+
+# ignoring some specific project
+specific-project
+
+```
+
+### Default arguments *(not implemeted yet)*
+
+You can specify default arguments in file `.workspace-info/config/default-arguments`:
+
+```bash
+# show status for every project with uncommited changes
+status -u
+```
+
+so when you run script with no arguments
+
+```bash
+$ workspace # and nothing more
+```
+
+you run some default action, for example status for all projects with uncommited changes.
+
+
 # Notes
 
 Project name is considered to be the name of the folder that is parent to `.git` folder.
 
-If no `-s` or `-r` option is set, then `<pattern>` is searched as a part of a project/branch name.
+If no `-s` or `-S` option is set, then `<pattern>` is searched as a part of a project/branch name.
 
 Use quotes for `|`, `;`, `&&` and `||` inside `<commands>` for `foreach`.
 
