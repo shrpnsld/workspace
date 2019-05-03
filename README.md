@@ -73,7 +73,7 @@ $ workspace open -x -p engine
 * `status` – show git status for each matched project
 * `git` – run git command for each matched project
 * `foreach` – run command for each matched project
-* `open` – open matched projects in bash (default), Gnome-Terminal tabs or tmux panels
+* `open` – open matched projects in shell (default), Gnome-Terminal tabs or tmux panels
 
 ### Additional commands
 
@@ -118,7 +118,7 @@ specific-project
 
 ```
 
-### Default arguments *(not implemeted yet)*
+### Default arguments
 
 You can specify default arguments in file `.workspace-info/config/default-arguments`:
 
@@ -144,4 +144,4 @@ If no `-s` or `-S` option is set, then `<pattern>` is searched as a part of a pr
 
 Use quotes for `|`, `;`, `&&` and `||` inside `<commands>` for `foreach`.
 
-If any `<command>` in `git` or `foreach` failes during run, the script will prompt to open that project in bash to deal with issue manually.
+If any `<command>` in `git` or `foreach` failes during run, the script will prompt to open that project in shell to deal with issue manually.
