@@ -57,7 +57,7 @@ COMPLETION_LOCAL_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$LOCAL_BRANCH_LIST_FILE_
 COMPLETION_REMOTE_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$REMOTE_BRANCH_LIST_FILE_NAME"
 COMPLETION_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$BRANCH_LIST_FILE_NAME"
 
-SCRIPT_COMMANDS=('status' 'git' 'foreach' 'open' 'cache-workspace-info' 'install-completion-script')
+SCRIPT_COMMANDS=('status' 'git' 'foreach' 'open' 'init' 'cache-workspace-info' 'install-completion-script')
 
 HELP_MESSAGE=\
 "Do various stuff with multiple projects.
@@ -105,6 +105,8 @@ HELP_MESSAGE=\
     -h | --help                       Show this message.
 
 \e[1mADDITIONAL COMMANDS\e[0m
+    init                       initialize workspace resource directory
+                               (optional).
     install-completion-script  Install bash completion script for project and
                                branch names.
     cache-workspace-info       Cache project paths and store project and branch
@@ -205,6 +207,12 @@ _workspace-completion()
 
 complete -F _workspace-completion '"$SCRIPT_NAME"
 
+IGNORE_PATHS_FILE_COMMENT=\
+'# glob patterns to ignore'
+
+DEFAULT_PARAMETERS_FILE_COMMENT=\
+'# arguments that would be passed to the script with no arguments, e.g.
+# $ workspace # and nothing more'
 
 MATCHERS=()
 MATCHER_PREFIXES=()
@@ -1178,6 +1186,19 @@ apply-parameters()
 
 		foreach)
 			DO_JOB_FUNCTION=foreach-project
+			;;
+
+		init)
+			mkdir -p "$CONFIG_DIR_PATH"
+			mkdir -p "$CACHE_DIR_PATH"
+			mkdir -p "$COMPLETION_DIR_PATH"
+
+			printf '%s\n' "$IGNORE_PATHS_FILE_COMMENT" > "$CONFIG_IGNORE_PATH"
+			printf '%s\n' "$DEFAULT_PARAMETERS_FILE_COMMENT" > "$CONFIG_DEFAULT_ARGUMENTS_PATH"
+
+			printf-message 'Caching workspace info...'
+			cache-workspace-info
+			exit
 			;;
 
 		cache-workspace-info)
