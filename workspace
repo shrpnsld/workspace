@@ -100,6 +100,8 @@ HELP_MESSAGE=\
     -t | --tabs                       Open projects in Gnome Terminal tabs.
     -x | --tmux                       Open projects in tmux panels.
     -i | --interactive                Chose projects to do your stuff with.
+    -g | --ignore-failed              Do not prompt to deal with error for failed
+                                      commands in 'git' and 'foreach'.
     -h | --help                       Show this message.
 
 \e[1mADDITIONAL COMMANDS\e[0m
@@ -211,6 +213,7 @@ MATCHER_PATTERNS=()
 
 PROMPT_TO_USE_REPOSITORY_FUNCTION=nothing
 declare -a FOREACH_ARGUMENTS
+DEAL_WITH_FAILED_COMMAND_FUNCTION=deal-with-failed-command-manually
 OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-shell
 DO_JOB_FUNCTION=''
 
@@ -229,6 +232,7 @@ OPTION_IGNORE_DETACHED=false
 OPTION_GNOME_TABS=false
 OPTION_TMUX=false
 OPTION_INTERACTIVE=false
+OPTION_IGNORE_FAILED=false
 
 
 add-matcher()
@@ -264,6 +268,12 @@ add-matcher()
 prompt-user-to-select-project()
 {
 	"$PROMPT_TO_USE_REPOSITORY_FUNCTION" "$@"
+}
+
+
+deal-with-failed-command()
+{
+	"$DEAL_WITH_FAILED_COMMAND_FUNCTION" "$@"
 }
 
 
@@ -569,6 +579,24 @@ prompt-yes-no()
 }
 
 
+deal-with-failed-command-manually()
+{
+	local retval=$1
+	local path=$2
+
+	if [ $retval == 0 ]
+	then
+		return
+	fi
+
+	prompt-yes-no '\n\e[1;31mCommand exited with non-zero code.\nDo you want to open this project in shell to deal with error and run your command manualy? (y/n)\e[0m'
+	if [ $? == 0 ]
+	then
+		"$CURRENT_SHELL" -c "cd $path; $CURRENT_SHELL"
+	fi
+}
+
+
 exclusive()
 {
 	local values=("$@")
@@ -867,15 +895,7 @@ foreach-project()
 		fi
 
 		bash -c "cd $path; ${FOREACH_ARGUMENTS[*]}"
-		if [ $? != 0 ]
-		then
-			prompt-yes-no '\n\e[1;31mCommand exited with non-zero code. Do you want to open this project in bash? (y/n)\e[0m'
-			if [ $? == 0 ]
-			then
-				bash -c "cd $path; bash"
-			fi
-		fi
-
+		deal-with-failed-command $? "$path"
 		printf '\n'
 	done
 }
@@ -991,7 +1011,10 @@ parse-option()
 
 		i|interactive)
 			OPTION_INTERACTIVE=true
-			PROMPT_TO_USE_REPOSITORY_FUNCTION=prompt-user-to-select-project-implementation
+			;;
+
+		g|ignore-failed)
+			OPTION_IGNORE_FAILED=true
 			;;
 
 		*)
@@ -1099,6 +1122,20 @@ validate-options()
 				printf-error '"-i" ("--interactive") should be used with "open", "foreach" or "git" command'
 				return 1
 			fi
+
+			if $OPTION_IGNORE_FAILED
+			then
+				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" command'
+				return 1
+			fi
+			;;
+
+		open)
+			if $OPTION_IGNORE_FAILED
+			then
+				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" command'
+				return 1
+			fi
 			;;
 
 		git|foreach)
@@ -1197,6 +1234,16 @@ apply-parameters()
 	elif $OPTION_TMUX
 	then
 		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-tmux
+	fi
+
+	if $OPTION_INTERACTIVE
+	then
+		PROMPT_TO_USE_REPOSITORY_FUNCTION=prompt-user-to-select-project-implementation
+	fi
+
+	if $OPTION_IGNORE_FAILED
+	then
+		DEAL_WITH_FAILED_COMMAND_FUNCTION=nothing
 	fi
 }
 
