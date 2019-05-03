@@ -28,6 +28,8 @@ then
 fi
 
 
+CURRENT_SHELL=$(ps -o 'comm=' -p "$PPID")
+
 WORKSPACE_PATH="$PWD"
 
 WORKSPACE_INFO_DIR_NAME='.workspace-info'
@@ -79,7 +81,7 @@ HELP_MESSAGE=\
     status   show git status for project.
     git      run git command for each project.
     foreach  run command for each project.
-    open     open projects in bash (default), Gnome-Terminal tabs or tmux
+    open     open projects in shell (default), Gnome-Terminal tabs or tmux
              panels.
 
 \e[1mOPTIONS\e[0m
@@ -115,7 +117,7 @@ HELP_MESSAGE=\
     Use quotes for '|', ';', '&&' and '||' inside <commands> for 'foreach'.
 
     If any <command> in 'git' or 'foreach' failes during run, then script will
-    prompt to open that project in bash to deal with issue manually.
+    prompt to open that project in shell to deal with issue manually.
 
 \e[1mEXAMPLES\e[0m
     Get git status for all projects that contain 'feature' in any of their
@@ -208,8 +210,8 @@ MATCH_FUNCTIONS=()
 MATCHER_PATTERNS=()
 
 PROMPT_TO_USE_REPOSITORY_FUNCTION=nothing
-OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-bash
 declare -a FOREACH_ARGUMENTS
+OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-shell
 DO_JOB_FUNCTION=''
 
 
@@ -762,7 +764,7 @@ show-repositories-status()
 }
 
 
-start-bash()
+start-shell()
 {
 	local project_paths=("$@")
 
@@ -776,7 +778,7 @@ start-bash()
 
 		local project_name=$(basename "$path")
 		printf '\e[1;4m%s\e[0m\n' "$project_name"
-		bash -c "cd $path; bash"
+		"$CURRENT_SHELL" -c "cd $path; $CURRENT_SHELL"
 		printf '\n'
 	done
 }
