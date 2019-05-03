@@ -1200,7 +1200,10 @@ apply-parameters()
 			;;
 	esac
 
-	WORKSPACE_PATH=$(normalize-path "$OPTION_WORKSPACE_PATH")
+	if [ -n "$OPTION_WORKSPACE_PATH" ]
+	then
+		WORKSPACE_PATH=$(normalize-path "$OPTION_WORKSPACE_PATH")
+	fi
 
 	if $OPTION_UNCOMMITED
 	then
