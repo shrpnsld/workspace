@@ -33,8 +33,8 @@ CURRENT_SHELL=$(ps -o 'comm=' -p "$PPID")
 WORKSPACE_PATH="$PWD"
 
 WORKSPACE_INFO_DIR_NAME='.workspace-info'
-IGNORE_FILE_NAME="ignore"
-DEFAULT_COMMAND_FILE_NAME="default-command"
+IGNORE_FILE_NAME='ignore-paths'
+DEFAULT_ARGUMENTS_FILE_NAME='default-arguments'
 PROJECT_PATHS_FILE_NAME='project-paths'
 PROJECT_LIST_FILE_NAME='project-list'
 CURRENT_BRANCH_LIST_FILE_NAME='current-branch-list'
@@ -47,7 +47,7 @@ CACHE_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/cache"
 COMPLETION_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/completion"
 
 CONFIG_IGNORE_PATH="$CONFIG_DIR_PATH/$IGNORE_FILE_NAME"
-CONFIG_DEFAULT_COMMAND_PATH="$CONFIG_DIR_PATH/$DEFAULT_COMMAND_FILE_NAME"
+CONFIG_DEFAULT_ARGUMENTS_PATH="$CONFIG_DIR_PATH/$DEFAULT_ARGUMENTS_FILE_NAME"
 
 CACHE_PROJECT_PATHS_PATH="$CACHE_DIR_PATH/$PROJECT_PATHS_FILE_NAME"
 
@@ -212,9 +212,9 @@ MATCH_FUNCTIONS=()
 MATCHER_PATTERNS=()
 
 PROMPT_TO_USE_REPOSITORY_FUNCTION=nothing
-declare -a FOREACH_ARGUMENTS
 DEAL_WITH_FAILED_COMMAND_FUNCTION=deal-with-failed-command-manually
 OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-shell
+FOREACH_ARGUMENTS=()
 DO_JOB_FUNCTION=''
 
 
@@ -832,7 +832,7 @@ start-gnome-terminal()
 		fi
 	done
 
-	declare -a gnome_terminal_options
+	local gnome_terminal_options=()
 	for path in "${selected_paths[@]}"
 	do
 		gnome_terminal_options+=("--tab --working-directory ${path}")
@@ -1294,7 +1294,16 @@ fi
 #
 # Script parameters
 
-parse-parameters "$@" && validate-options $1
+parameters=("$@")
+if [ ${#parameters[@]} == 0 ]
+then
+	if [ -r "$CONFIG_DEFAULT_ARGUMENTS_PATH" ]
+	then
+		parameters=($(cat "$CONFIG_DEFAULT_ARGUMENTS_PATH" | grep '^[^#]'))
+	fi
+fi
+
+parse-parameters "${parameters[@]}" && validate-options $1
 if [ $? != 0 ]
 then
 	exit 1
@@ -1306,7 +1315,7 @@ apply-parameters
 #
 # Main
 
-if [ ! -d "$CACHE_DIR_PATH" ]
+if [ ! -r "$CACHE_PROJECT_PATHS_PATH" ]
 then
 	printf-message 'Caching workspace info...'
 	cache-workspace-info
@@ -1321,7 +1330,7 @@ then
 fi
 
 printf-message 'Scanning projects...'
-declare -a matched_projects
+matched_projects=()
 for (( index = 0; ; ++index ))
 do
 	print-progress-string $index $project_count
