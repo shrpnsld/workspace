@@ -28,7 +28,7 @@ then
 fi
 
 
-CURRENT_SHELL=$(ps -o 'comm=' -p "$PPID")
+CURRENT_SHELL=$(ps -o comm= -p "$PPID")
 
 WORKSPACE_PATH="$PWD"
 
@@ -100,8 +100,8 @@ HELP_MESSAGE=\
     -t | --tabs                       Open projects in Gnome Terminal tabs.
     -x | --tmux                       Open projects in tmux panels.
     -i | --interactive                Chose projects to do your stuff with.
-    -g | --ignore-failed              Do not prompt to deal with error for failed
-                                      commands in 'git' and 'foreach'.
+    -g | --ignore-failed              Do not prompt to deal with error for
+                                      failed commands in 'git' and 'foreach'.
     -h | --help                       Show this message.
 
 \e[1mADDITIONAL COMMANDS\e[0m
