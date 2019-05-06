@@ -97,8 +97,12 @@ HELP_MESSAGE=\
     -N | --negate-all                 Negate all patterns.
     -u | --uncommited                 Match projects with uncommited changes.
     -d | --ignore-detached            Do not match projects with detached HEAD.
-    -t | --tabs                       Open projects in Gnome Terminal tabs.
-    -x | --tmux                       Open projects in tmux panels.
+    -t | --tabs                       Open projects in current terminal
+                                      tabs/panels.
+    -A | --apple-terminal             Open projects in Apple terminal tabs.
+    -G | --gnome-terminal             Open projects in Gnome terminal tabs.
+    -I | --iterm                      Open projects in iTerm tabs.
+    -X | --tmux                       Open projects in tmux panels.
     -i | --interactive                Chose projects to do your stuff with.
     -g | --ignore-failed              Do not prompt to deal with error for
                                       failed commands in 'git' and 'foreach'.
@@ -237,7 +241,10 @@ OPTION_STRICT_NEXT_PATTERN=false
 OPTION_STRICT_ALL_PATTERNS=false
 OPTION_UNCOMMITED=false
 OPTION_IGNORE_DETACHED=false
-OPTION_GNOME_TABS=false
+OPTION_TERMINAL_TABS=false
+OPTION_APPLE_TERMINAL=false
+OPTION_GNOME_TERMINAL=false
+OPTION_ITERM=false
 OPTION_TMUX=false
 OPTION_INTERACTIVE=false
 OPTION_IGNORE_FAILED=false
@@ -822,12 +829,6 @@ start-shell()
 
 start-gnome-terminal()
 {
-	if ! command-exists 'gnome-terminal'
-	then
-		printf-error 'gnome-terminal is not installed'
-		exit 1
-	fi
-
 	local project_paths=("$@")
 
 	local selected_paths=()
@@ -847,6 +848,45 @@ start-gnome-terminal()
 	done
 
 	gnome-terminal ${gnome_terminal_options[@]}
+}
+
+
+start-apple-terminal()
+{
+	local project_paths=("$@")
+
+	local project
+	for path in "${project_paths[@]}"
+	do
+		osascript \
+			-e 'tell application "Terminal" to activate' \
+			-e 'tell application "System Events" to tell process "Terminal" to keystroke "t" using command down' \
+			-e 'tell application "Terminal" to do script "cd '"'$path'"'" in selected tab of the front window' > /dev/null
+	done
+}
+
+
+start-iterm()
+{
+	local project_paths=("$@")
+
+	local project
+	for path in "${project_paths[@]}"
+	do
+		osascript \
+			-e 'tell application "iTerm"
+					tell current window
+						create tab with default profile
+					end tell
+					tell current tab of current window
+						set _new_session to last item of sessions
+					end tell
+					tell _new_session
+						select
+						write text "cd '"'$path'"'"
+					end tell
+				end tell' > /dev/null
+	done
 }
 
 
@@ -1010,10 +1050,22 @@ parse-option()
 			;;
 
 		t|tabs)
-			OPTION_GNOME_TABS=true
+			OPTION_TERMINAL_TABS=true
 			;;
 
-		x|tmux)
+		A|apple-terminal)
+			OPTION_APPLE_TERMINAL=true
+			;;
+
+		G|gnome-terminal)
+			OPTION_GNOME_TERMINAL=true
+			;;
+
+		I|iterm)
+			OPTION_ITERM=true
+			;;
+
+		X|tmux)
 			OPTION_TMUX=true
 			;;
 
@@ -1119,9 +1171,9 @@ validate-options()
 
 	case $command in
 		status)
-			if $OPTION_GNOME_TABS || $OPTION_TMUX
+			if $OPTION_TERMINAL_TABS || $OPTION_APPLE_TERMINAL || $OPTION_GNOME_TERMINAL || $OPTION_ITERM || $OPTION_TMUX
 			then
-				printf-error '"-t", "-x" ("--tabs", "--tmux") should be used with "open" command'
+				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" command'
 				return 1
 			fi
 
@@ -1147,15 +1199,15 @@ validate-options()
 			;;
 
 		git|foreach)
-			if $OPTION_GNOME_TABS || $OPTION_TMUX
+			if $OPTION_TERMINAL_TABS || $OPTION_APPLE_TERMINAL || $OPTION_GNOME_TERMINAL || $OPTION_ITERM || $OPTION_TMUX
 			then
-				printf-error '"-t", "-x" ("--tabs", "--tmux") should be used with "open" command'
+				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" command'
 				return 1
 			fi
 			;;
 	esac
 
-	if ! exclusive $OPTION_GNOME_TABS $OPTION_TMUX
+	if ! exclusive $OPTION_TERMINAL_TABS $OPTION_APPLE_TERMINAL $OPTION_GNOME_TERMINAL $OPTION_ITERM $OPTION_TMUX
 	then
 		printf-error 'you can'"'"'t specify both Gnome Terminal tabs and tmux panels'
 		return 1
@@ -1252,9 +1304,39 @@ apply-parameters()
 		MATCH_FUNCTIONS=($(fill-array ${#MATCH_FUNCTIONS[@]} 'strict-match'))
 	fi
 
-	if $OPTION_GNOME_TABS
+	if $OPTION_TERMINAL_TABS
+	then
+		if [ "$TERM" == 'screen' ] && [ -n "$TMUX" ]
+		then
+			OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-tmux
+		else
+			case $TERM_PROGRAM in
+				Apple_Terminal)
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
+					;;
+
+				iTerm.app)
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-iterm
+					;;
+
+				gnome-terminal)
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-gnome-terminal
+					;;
+
+				*)
+					printf-error 'terminal "%s" is not supported' "$TERM_PROGRAM"
+					;;
+			esac
+		fi
+	elif $OPTION_APPLE_TERMINAL
+	then
+		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
+	elif $OPTION_GNOME_TERMINAL
 	then
 		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-gnome-terminal
+	elif $OPTION_ITERM
+	then
+		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-iterm
 	elif $OPTION_TMUX
 	then
 		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-tmux
