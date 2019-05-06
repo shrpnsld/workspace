@@ -32,8 +32,14 @@ CURRENT_SHELL=$(ps -o comm= -p "$PPID")
 
 WORKSPACE_PATH="$PWD"
 
+CUSTOM_ACTIONS=()
+CUSTOM_ACTIONS_OPTIONS=()
+CUSTOM_ACTIONS_COMMANDS=()
+CUSTOM_ACTIONS_DESCRIPTIONS=()
+
 WORKSPACE_INFO_DIR_NAME='.workspace-info'
 IGNORE_FILE_NAME='ignore-paths'
+CUSTOM_ACTIONS_FILE_NAME='custom-actions'
 DEFAULT_ARGUMENTS_FILE_NAME='default-arguments'
 PROJECT_PATHS_FILE_NAME='project-paths'
 PROJECT_LIST_FILE_NAME='project-list'
@@ -47,6 +53,7 @@ CACHE_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/cache"
 COMPLETION_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/completion"
 
 CONFIG_IGNORE_PATH="$CONFIG_DIR_PATH/$IGNORE_FILE_NAME"
+CONFIG_CUSTOM_ACTIONS_PATH="$CONFIG_DIR_PATH/$CUSTOM_ACTIONS_FILE_NAME"
 CONFIG_DEFAULT_ARGUMENTS_PATH="$CONFIG_DIR_PATH/$DEFAULT_ARGUMENTS_FILE_NAME"
 
 CACHE_PROJECT_PATHS_PATH="$CACHE_DIR_PATH/$PROJECT_PATHS_FILE_NAME"
@@ -59,95 +66,10 @@ COMPLETION_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$BRANCH_LIST_FILE_NAME"
 
 SCRIPT_COMMANDS=('status' 'git' 'foreach' 'open' 'init' 'cache-workspace-info' 'install-completion-script')
 
-HELP_MESSAGE=\
-"Do various stuff with multiple projects.
-
-\e[1mUSAGE\e[0m
-    $SCRIPT_NAME status [-P <project-path>] [-u | -U] [-n] [-s | -r]
-        [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-
-    $SCRIPT_NAME git [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
-        [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-        -- <git-command>...
-
-    $SCRIPT_NAME foreach [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
-        [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-        -- <commands>...
-
-    $SCRIPT_NAME open [-P <project-path>] [-t] [-i] [-u | -U] [-n] [-s | -r]
-              [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-
-\e[1mCOMMANDS\e[0m
-    status   show git status for project.
-    git      run git command for each project.
-    foreach  run command for each project.
-    open     open projects in shell (default), Gnome-Terminal tabs or tmux
-             panels.
-
-\e[1mOPTIONS\e[0m
-    -W | --workspace-path <path>      Search path [default: current directory].
-    -p | --project <pattern>          Project name pattern.
-    -B | --branch <pattern>           Current branch name pattern.
-    -b | --branches <pattern>         Branch name pattern for local branches.
-    -r | --remote-branches <pattern>  Branch name pattern for remote branches.
-    -a | --all-branches <pattern>     Branch name pattern for all branches.
-    -s | --strict                     Match next pattern strictly.
-    -S | --strict-all                 Match all patterns strictly.
-    -n | --negate                     Negate next pattern.
-    -N | --negate-all                 Negate all patterns.
-    -u | --uncommited                 Match projects with uncommited changes.
-    -d | --ignore-detached            Do not match projects with detached HEAD.
-    -t | --tabs                       Open projects in current terminal
-                                      tabs/panels.
-    -A | --apple-terminal             Open projects in Apple terminal tabs.
-    -G | --gnome-terminal             Open projects in Gnome terminal tabs.
-    -I | --iterm                      Open projects in iTerm tabs.
-    -X | --tmux                       Open projects in tmux panels.
-    -i | --interactive                Chose projects to do your stuff with.
-    -g | --ignore-failed              Do not prompt to deal with error for
-                                      failed commands in 'git' and 'foreach'.
-    -h | --help                       Show this message.
-
-\e[1mADDITIONAL COMMANDS\e[0m
-    init                       initialize workspace resource directory
-                               (optional).
-    install-completion-script  Install bash completion script for project and
-                               branch names.
-    cache-workspace-info       Cache project paths and store project and branch
-                               names for completion script.
-
-\e[1mNOTES\e[0m
-    Project name is the name of the folder that is parent to '.git' folder.
-
-    If no '-s' or '-r' option is set, then <pattern> is searched as a part of
-    a project/branch name.
-
-    Use quotes for '|', ';', '&&' and '||' inside <commands> for 'foreach'.
-
-    If any <command> in 'git' or 'foreach' failes during run, then script will
-    prompt to open that project in shell to deal with issue manually.
-
-\e[1mEXAMPLES\e[0m
-    Get git status for all projects that contain 'feature' in any of their
-    existing branch names (-b).
-    \e[1m$ $SCRIPT_NAME status -b feature\e[0m
-
-    Checkout to branch 'master' each project, that is not (-n) on 'master'
-    branch (-B).
-    \e[1m$ $SCRIPT_NAME git -nB master -- checkout master\e[0m
-
-    Commit changes for each project, that has uncommited changes (-u) and
-    contains 'feature/some' in it's current branch name (-B).
-    \e[1m$ $SCRIPT_NAME foreach -u -B feature/some -- git add . '&&' git commit\e[0m
-
-    Open in tmux panels (-x) projects, that contain 'feature' in their current
-    branch name (-b).
-    \e[1m$ $SCRIPT_NAME open -x -b feature\e[0m
-"
-
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
 
+_WORKSPACE_CONFIG_CUSTOM_ACTIONS_PATH='"$CONFIG_CUSTOM_ACTIONS_PATH"'
 _WORKSPACE_COMPLETION_PROJECT_LIST_PATH='"$COMPLETION_PROJECT_LIST_PATH"'
 _WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH='"$COMPLETION_CURRENT_BRANCH_LIST_PATH"'
 _WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH='"$COMPLETION_LOCAL_BRANCH_LIST_PATH"'
@@ -167,7 +89,18 @@ _workspace-completion()
 {
 	if [ $COMP_CWORD == 1 ]
 	then
-		COMPREPLY=($(compgen -W "'"${SCRIPT_COMMANDS[@]}"'" "${COMP_WORDS[1]}"))
+		local ACTIONS=('"${SCRIPT_COMMANDS[@]}"')
+		if [ -r "$_WORKSPACE_CONFIG_CUSTOM_ACTIONS_PATH" ]
+		then
+			local line
+			while read -r line
+			do
+				local action="${line%% *}"
+				ACTIONS+=("$action")
+			done < <(grep -e '"'"'^\s*[^#][a-zA-Z0-9]\+.*'"'"' "$_WORKSPACE_CONFIG_CUSTOM_ACTIONS_PATH")
+		fi
+
+		COMPREPLY=($(compgen -W "${ACTIONS[*]}" "${COMP_WORDS[1]}"))
 		return
 	fi
 
@@ -217,6 +150,10 @@ IGNORE_PATHS_FILE_COMMENT=\
 DEFAULT_PARAMETERS_FILE_COMMENT=\
 '# arguments that would be passed to the script with no arguments, e.g.
 # $ workspace # and nothing more'
+
+CUSTOM_ACTIONS_FILE_COMMENT=\
+'# status -- git status # show git status for projects
+'
 
 MATCHERS=()
 MATCHER_PREFIXES=()
@@ -637,6 +574,16 @@ normalize-path()
 }
 
 
+string-trim()
+{
+    local string=$1
+
+    string="${string#"${string%%[![:space:]]*}"}"
+    string="${string%"${string##*[![:space:]]}"}"
+    printf '%s\n' "$string"
+}
+
+
 array-contains()
 {
 	local value=$1
@@ -661,6 +608,63 @@ array-fill()
 	local value=$2
 
 	printf '%.0s\n' "$value" {1..${#MATCH_FUNCTIONS[@]}}
+}
+
+
+array-index-of()
+{
+	local value=$1
+	local array=("${@:2}")
+
+	local index=( 0 )
+	local item
+	for item in "${array[@]}"
+	do
+		if [ "$item" == "$value" ]
+		then
+			printf '%s\n' $index
+			return
+		fi
+
+		(( ++index ))
+	done
+
+	return 1
+}
+
+
+get-action()
+{
+	local string=$1
+
+	string-trim "${string%% *}"
+}
+
+
+get-options()
+{
+	local string=$1
+	local action=$2
+
+	string="${string#$action}"
+	string-trim "${string%%--*}"
+}
+
+
+get-command()
+{
+	local string=$1
+
+	string="${string#*-- }"
+	string-trim "${string%#*}"
+}
+
+
+get-description()
+{
+	local string=$1
+
+	[[ $string =~ ^.*#.*$ ]] && string-trim "${line#*#}"
 }
 
 
@@ -1104,8 +1108,15 @@ parse-parameters()
 
 	if ! array-contains "$command" "${SCRIPT_COMMANDS[@]}"
 	then
-		printf-error 'unknown command '"'$command'"
-		return 1
+		local index
+		index=$(array-index-of "$command" "${CUSTOM_ACTIONS[@]}")
+		if [ $? != 0 ]
+		then
+			printf-error 'unknown command '"'$command'"
+			return 1
+		fi
+
+		parameters+=(${CUSTOM_ACTIONS_OPTIONS[$index]})
 	fi
 
 	OPTION_COMMAND="$command"
@@ -1252,6 +1263,7 @@ apply-parameters()
 			mkdir -p "$COMPLETION_DIR_PATH"
 
 			printf '%s\n' "$IGNORE_PATHS_FILE_COMMENT" > "$CONFIG_IGNORE_PATH"
+			printf '%s\n' "$CUSTOM_ACTIONS_FILE_COMMENT" > "$CONFIG_CUSTOM_ACTIONS_PATH"
 			printf '%s\n' "$DEFAULT_PARAMETERS_FILE_COMMENT" > "$CONFIG_DEFAULT_ARGUMENTS_PATH"
 
 			printf-message 'Caching workspace info...'
@@ -1276,6 +1288,12 @@ apply-parameters()
 			printf '%s\n' "$BASH_COMPLETION_SCRIPT" > "$bash_completion_dir/$SCRIPT_NAME"
 			printf-message 'please restart shell'
 			exit
+			;;
+
+		*)
+			DO_JOB_FUNCTION=foreach-project
+			local index=$(array-index-of "$OPTION_COMMAND" "${CUSTOM_ACTIONS[@]}")
+			FOREACH_ARGUMENTS+=("${CUSTOM_ACTIONS_COMMANDS[$index]}")
 			;;
 	esac
 
@@ -1398,6 +1416,112 @@ then
 	printf-error 'git is not installed'
 	exit 1
 fi
+
+
+#
+# Custom commands and help message
+
+while read -r line
+do
+	action=$(get-action "$line")
+	command=$(get-command "$line")
+	options=$(get-options "$line" "$action")
+	description=$(get-description "$line")
+
+	CUSTOM_ACTIONS+=("$action")
+	CUSTOM_ACTIONS_OPTIONS+=("$options")
+	CUSTOM_ACTIONS_COMMANDS+=("$command")
+	CUSTOM_ACTIONS_DESCRIPTIONS+=("$description")
+done < <(grep -e '^\s*[^#][a-zA-Z0-9]\+.*' "$CONFIG_CUSTOM_ACTIONS_PATH")
+
+
+CUSTOM_ACTION_HELP=''
+for (( index = 0; index < ${#CUSTOM_ACTIONS[@]}; ++index ))
+do
+	action=$(printf '%*s' -11 "${CUSTOM_ACTIONS[$index]}")
+	description="${CUSTOM_ACTIONS_DESCRIPTIONS[$index]}"
+	if [ -z "$description" ]
+	then
+		description="${CUSTOM_ACTIONS_COMMANDS[$index]}"
+	fi
+
+	CUSTOM_ACTION_HELP="$CUSTOM_ACTION_HELP  $action $description\n"
+done
+
+
+HELP_MESSAGE=\
+"Do various stuff with multiple projects.
+
+\e[1mUSAGE\e[0m
+  $SCRIPT_NAME status [-P <project-path>] [-u | -U] [-n] [-s | -r]
+      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+
+  $SCRIPT_NAME git [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
+      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+      -- <git-command>...
+
+  $SCRIPT_NAME foreach [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
+      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+      -- <commands>...
+
+  $SCRIPT_NAME open [-P <project-path>] [-t] [-i] [-u | -U] [-n] [-s | -r]
+            [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+
+\e[1mCOMMANDS\e[0m
+  status      show git status for project.
+  git         run git command for each project.
+  foreach     run command for each project.
+  open        open projects in shell (default), Gnome-Terminal tabs or tmux panels.
+$CUSTOM_ACTION_HELP
+\e[1mOPTIONS\e[0m
+  -W | --workspace-path <path>      Search path [default: current directory].
+  -p | --project <pattern>          Project name pattern.
+  -B | --branch <pattern>           Current branch name pattern.
+  -b | --branches <pattern>         Branch name pattern for local branches.
+  -r | --remote-branches <pattern>  Branch name pattern for remote branches.
+  -a | --all-branches <pattern>     Branch name pattern for all branches.
+  -s | --strict                     Match next pattern strictly.
+  -S | --strict-all                 Match all patterns strictly.
+  -n | --negate                     Negate next pattern.
+  -N | --negate-all                 Negate all patterns.
+  -u | --uncommited                 Match projects with uncommited changes.
+  -d | --ignore-detached            Do not match projects with detached HEAD.
+  -t | --tabs                       Open projects in current terminal tabs/panels.
+  -A | --apple-terminal             Open projects in Apple terminal tabs.
+  -G | --gnome-terminal             Open projects in Gnome terminal tabs.
+  -I | --iterm                      Open projects in iTerm tabs.
+  -X | --tmux                       Open projects in tmux panels.
+  -i | --interactive                Chose projects to do your stuff with.
+  -g | --ignore-failed              Do not prompt to deal with error for failed commands in 'git' and 'foreach'.
+  -h | --help                       Show this message.
+
+\e[1mADDITIONAL COMMANDS\e[0m
+    init                       initialize workspace resource directory (optional).
+    install-completion-script  Install bash completion script for project and branch names.
+    cache-workspace-info       Cache project paths and store project and branch names for completion script.
+
+\e[1mNOTES\e[0m
+    Project name is the name of the folder that is parent to '.git' folder.
+
+    If no '-s' or '-r' option is set, then <pattern> is searched as a part of a project/branch name.
+
+    Use quotes for '|', ';', '&&' and '||' inside <commands> for 'foreach'.
+
+    If any <command> in 'git' or 'foreach' failes during run, then script will prompt to open that project in shell to deal with issue manually.
+
+\e[1mEXAMPLES\e[0m
+    Get git status for all projects that contain 'feature' in any of their existing branch names (-b).
+    \e[1m$ $SCRIPT_NAME status -b feature\e[0m
+
+    Checkout to branch 'master' each project, that is not (-n) on 'master' branch (-B).
+    \e[1m$ $SCRIPT_NAME git -nB master -- checkout master\e[0m
+
+    Commit changes for each project, that has uncommited changes (-u) and contains 'feature/some' in it's current branch name (-B).
+    \e[1m$ $SCRIPT_NAME foreach -u -B feature/some -- git add . '&&' git commit\e[0m
+
+    Open in tmux panels (-x) projects, that contain 'feature' in their current branch name (-b).
+    \e[1m$ $SCRIPT_NAME open -x -b feature\e[0m
+"
 
 
 #
