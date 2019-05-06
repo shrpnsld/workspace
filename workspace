@@ -175,7 +175,7 @@ _workspace-completion()
 
 	if ([ "$argument" == "--project" ] \
 		|| (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "p" ])) \
-		&& [ -f "$_WORKSPACE_COMPLETION_PROJECT_LIST_PATH" ]
+		&& [ -r "$_WORKSPACE_COMPLETION_PROJECT_LIST_PATH" ]
 	then
 		local projects=$(cat "$_WORKSPACE_COMPLETION_PROJECT_LIST_PATH")
 		COMPREPLY=($(compgen -W "$projects" "${COMP_WORDS[$COMP_CWORD]}"))
@@ -183,25 +183,25 @@ _workspace-completion()
 	fi
 
 	if ([ "$argument" == "--branch" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "B" ])) \
-		&& [ -f "$_WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH" ]
+		&& [ -r "$_WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH" ]
 	then
 		local branches=$(cat "$_WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH")
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	elif ([ "$argument" == "--branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "b" ])) \
-		&& [ -f "$_WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH" ]
+		&& [ -r "$_WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH" ]
 	then
 		local branches=$(cat "$_WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH")
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	elif ([ "$argument" == "--remote-branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "r" ])) \
-		&& [ -f "$_WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH" ]
+		&& [ -r "$_WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH" ]
 	then
 		local branches=$(cat "$_WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH")
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	elif ([ "$argument" == "--all-branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "a" ])) \
-		&& [ -f "$_WORKSPACE_COMPLETION_BRANCH_LIST_PATH" ]
+		&& [ -r "$_WORKSPACE_COMPLETION_BRANCH_LIST_PATH" ]
 	then
 		local branches=$(cat "$_WORKSPACE_COMPLETION_BRANCH_LIST_PATH")
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
@@ -248,33 +248,6 @@ OPTION_ITERM=false
 OPTION_TMUX=false
 OPTION_INTERACTIVE=false
 OPTION_IGNORE_FAILED=false
-
-
-add-matcher()
-{
-	local matcher=$1
-	local pattern=$2
-
-	MATCHERS+=("$matcher")
-
-	if $OPTION_NEGATE_NEXT_PATTERN
-	then
-		MATCHER_PREFIXES+=('negate')
-		OPTION_NEGATE_NEXT_PATTERN=false
-	else
-		MATCHER_PREFIXES+=('straight')
-	fi
-
-	if $OPTION_STRICT_NEXT_PATTERN
-	then
-		MATCH_FUNCTIONS+=('strict-match')
-		OPTION_STRICT_NEXT_PATTERN=false
-	else
-		MATCH_FUNCTIONS+=('inclusion-match')
-	fi
-
-	MATCHER_PATTERNS+=("$pattern")
-}
 
 
 #
@@ -386,6 +359,33 @@ repository-has-detached-head()
 
 #
 # Matcher functions
+
+add-matcher()
+{
+	local matcher=$1
+	local pattern=$2
+
+	MATCHERS+=("$matcher")
+
+	if $OPTION_NEGATE_NEXT_PATTERN
+	then
+		MATCHER_PREFIXES+=('negate')
+		OPTION_NEGATE_NEXT_PATTERN=false
+	else
+		MATCHER_PREFIXES+=('straight')
+	fi
+
+	if $OPTION_STRICT_NEXT_PATTERN
+	then
+		MATCH_FUNCTIONS+=('strict-match')
+		OPTION_STRICT_NEXT_PATTERN=false
+	else
+		MATCH_FUNCTIONS+=('inclusion-match')
+	fi
+
+	MATCHER_PATTERNS+=("$pattern")
+}
+
 
 straight()
 {
@@ -607,7 +607,7 @@ deal-with-failed-command-manually()
 	prompt-yes-no '\n\e[1;31mCommand exited with non-zero code.\nDo you want to open this project in shell to deal with error and run your command manualy? (y/n)\e[0m'
 	if [ $? == 0 ]
 	then
-		"$CURRENT_SHELL" -c "cd $path; $CURRENT_SHELL"
+		"$CURRENT_SHELL" -c "cd '$path'; $CURRENT_SHELL"
 	fi
 }
 
@@ -639,13 +639,13 @@ normalize-path()
 
 array-contains()
 {
-	local item=$1
+	local value=$1
 	local array=("${@:2}")
 
-	local value
-	for value in "${array[@]}"
+	local item
+	for item in "${array[@]}"
 	do
-		if [ "$value" == "$item" ]
+		if [ "$item" == "$value" ]
 		then
 			return 0
 		fi
@@ -655,7 +655,7 @@ array-contains()
 }
 
 
-fill-array()
+array-fill()
 {
 	local size=$1
 	local value=$2
@@ -821,7 +821,7 @@ start-shell()
 
 		local project_name=$(basename "$path")
 		printf '\e[1;4m%s\e[0m\n' "$project_name"
-		"$CURRENT_SHELL" -c "cd $path; $CURRENT_SHELL"
+		"$CURRENT_SHELL" -c "cd '$path'; $CURRENT_SHELL"
 		printf '\n'
 	done
 }
@@ -829,6 +829,12 @@ start-shell()
 
 start-gnome-terminal()
 {
+	if ! command-exists 'gnome-terminal'
+	then
+		printf-error 'gnome-terminal is not installed'
+		exit 1
+	fi
+
 	local project_paths=("$@")
 
 	local selected_paths=()
@@ -942,7 +948,7 @@ foreach-project()
 			printf '\e[1;4m%s\e[0m\n' "$project_name"
 		fi
 
-		bash -c "cd $path; ${FOREACH_ARGUMENTS[*]}"
+		bash -c "cd '$path'; ${FOREACH_ARGUMENTS[*]}"
 		deal-with-failed-command $? "$path"
 		printf '\n'
 	done
@@ -1296,12 +1302,12 @@ apply-parameters()
 
 	if $OPTION_NEGATE_ALL_PATTERNS
 	then
-		MATCH_PREFIXES=($(fill-array ${#MATCH_FUNCTIONS[@]} 'negate'))
+		MATCH_PREFIXES=($(array-fill ${#MATCH_FUNCTIONS[@]} 'negate'))
 	fi
 
 	if $OPTION_STRICT_ALL_PATTERNS
 	then
-		MATCH_FUNCTIONS=($(fill-array ${#MATCH_FUNCTIONS[@]} 'strict-match'))
+		MATCH_FUNCTIONS=($(array-fill ${#MATCH_FUNCTIONS[@]} 'strict-match'))
 	fi
 
 	if $OPTION_TERMINAL_TABS
