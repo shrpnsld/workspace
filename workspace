@@ -64,7 +64,7 @@ COMPLETION_LOCAL_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$LOCAL_BRANCH_LIST_FILE_
 COMPLETION_REMOTE_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$REMOTE_BRANCH_LIST_FILE_NAME"
 COMPLETION_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$BRANCH_LIST_FILE_NAME"
 
-SCRIPT_COMMANDS=('status' 'git' 'foreach' 'open' 'init' 'cache-workspace-info' 'install-completion-script')
+SCRIPT_ACTIONS=('status' 'git' 'foreach' 'open' 'init' 'cache-workspace-info' 'install-completion-script')
 
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
@@ -89,7 +89,7 @@ _workspace-completion()
 {
 	if [ $COMP_CWORD == 1 ]
 	then
-		local ACTIONS=('"${SCRIPT_COMMANDS[@]}"')
+		local ACTIONS=('"${SCRIPT_ACTIONS[@]}"')
 		if [ -r "$_WORKSPACE_CONFIG_CUSTOM_ACTIONS_PATH" ]
 		then
 			local line
@@ -170,7 +170,7 @@ DO_JOB_FUNCTION=''
 #
 # Options
 
-OPTION_COMMAND=''
+OPTION_ACTION=''
 OPTION_WORKSPACE_PATH=''
 OPTION_NEGATE_NEXT_PATTERN=false
 OPTION_NEGATE_ALL_PATTERNS=false
@@ -1097,29 +1097,29 @@ parse-option()
 
 parse-parameters()
 {
-	local command=$1
+	local action=$1
 	local parameters=("${@:2}")
 
-	if [ -z "$command" ] || [ "$command" == '-h' ] || [ "$command" == '--help' ]
+	if [ -z "$action" ] || [ "$action" == '-h' ] || [ "$action" == '--help' ]
 	then
 		printf-message "$HELP_MESSAGE"
 		return 2
 	fi
 
-	if ! array-contains "$command" "${SCRIPT_COMMANDS[@]}"
+	if ! array-contains "$action" "${SCRIPT_ACTIONS[@]}"
 	then
 		local index
-		index=$(array-index-of "$command" "${CUSTOM_ACTIONS[@]}")
+		index=$(array-index-of "$action" "${CUSTOM_ACTIONS[@]}")
 		if [ $? != 0 ]
 		then
-			printf-error 'unknown command '"'$command'"
+			printf-error 'unknown action '"'$action'"
 			return 1
 		fi
 
 		parameters+=(${CUSTOM_ACTIONS_OPTIONS[$index]})
 	fi
 
-	OPTION_COMMAND="$command"
+	OPTION_ACTION="$action"
 
 	local parameter_index
 	for (( parameter_index = 0; parameter_index < ${#parameters[@]}; ++parameter_index ))
@@ -1184,25 +1184,25 @@ parse-parameters()
 
 validate-options()
 {
-	local command=$1
+	local action=$1
 
-	case $command in
+	case $action in
 		status)
 			if $OPTION_TERMINAL_TABS || $OPTION_APPLE_TERMINAL || $OPTION_GNOME_TERMINAL || $OPTION_ITERM || $OPTION_TMUX
 			then
-				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" command'
+				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" action'
 				return 1
 			fi
 
 			if $OPTION_INTERACTIVE
 			then
-				printf-error '"-i" ("--interactive") should be used with "open", "foreach" or "git" command'
+				printf-error '"-i" ("--interactive") should be used with "open", "foreach" or "git" action'
 				return 1
 			fi
 
 			if $OPTION_IGNORE_FAILED
 			then
-				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" command'
+				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" action'
 				return 1
 			fi
 			;;
@@ -1210,7 +1210,7 @@ validate-options()
 		open)
 			if $OPTION_IGNORE_FAILED
 			then
-				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" command'
+				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" action'
 				return 1
 			fi
 			;;
@@ -1218,7 +1218,7 @@ validate-options()
 		git|foreach)
 			if $OPTION_TERMINAL_TABS || $OPTION_APPLE_TERMINAL || $OPTION_GNOME_TERMINAL || $OPTION_ITERM || $OPTION_TMUX
 			then
-				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" command'
+				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" action'
 				return 1
 			fi
 			;;
@@ -1240,7 +1240,7 @@ validate-options()
 
 apply-parameters()
 {
-	case $OPTION_COMMAND in
+	case $OPTION_ACTION in
 		status)
 			DO_JOB_FUNCTION=show-repositories-status
 			;;
@@ -1292,7 +1292,7 @@ apply-parameters()
 
 		*)
 			DO_JOB_FUNCTION=foreach-project
-			local index=$(array-index-of "$OPTION_COMMAND" "${CUSTOM_ACTIONS[@]}")
+			local index=$(array-index-of "$OPTION_ACTION" "${CUSTOM_ACTIONS[@]}")
 			FOREACH_ARGUMENTS+=("${CUSTOM_ACTIONS_COMMANDS[$index]}")
 			;;
 	esac
@@ -1467,7 +1467,7 @@ HELP_MESSAGE=\
   $SCRIPT_NAME open [-P <project-path>] [-t] [-i] [-u | -U] [-n] [-s | -r]
             [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
 
-\e[1mCOMMANDS\e[0m
+\e[1mACTIONS\e[0m
   status      show git status for project.
   git         run git command for each project.
   foreach     run command for each project.
