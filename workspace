@@ -37,30 +37,24 @@ CUSTOM_ACTIONS_OPTIONS=()
 CUSTOM_ACTIONS_COMMANDS=()
 CUSTOM_ACTIONS_DESCRIPTIONS=()
 
-WORKSPACE_INFO_DIR_NAME=".$SCRIPT_NAME-info"
-IGNORE_FILE_NAME='ignore-paths'
+WORKSPACE_RC_DIR_NAME="$SCRIPT_NAME-script"
+
 CUSTOM_ACTIONS_FILE_NAME='custom-actions'
-PROJECT_PATHS_FILE_NAME='project-paths'
-PROJECT_LIST_FILE_NAME='project-list'
-CURRENT_BRANCH_LIST_FILE_NAME='current-branch-list'
-LOCAL_BRANCH_LIST_FILE_NAME='local-branch-list'
-REMOTE_BRANCH_LIST_FILE_NAME='remote-branch-list'
-BRANCH_LIST_FILE_NAME='branch-list'
+IGNORE_FILE_NAME='ignore-paths'
 
-CONFIG_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/config"
-CACHE_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/cache"
-COMPLETION_DIR_PATH="$WORKSPACE_INFO_DIR_NAME/completion"
+LOCAL_WORKSPACE_RC_PATH="./.$WORKSPACE_RC_DIR_NAME"
 
-CONFIG_IGNORE_PATH="$CONFIG_DIR_PATH/$IGNORE_FILE_NAME"
-CONFIG_CUSTOM_ACTIONS_PATH="$CONFIG_DIR_PATH/$CUSTOM_ACTIONS_FILE_NAME"
+CONFIG_DIR_PATHS=("$LOCAL_WORKSPACE_RC_PATH" "$HOME/.config/$WORKSPACE_RC_DIR_NAME" "/etc/$WORKSPACE_RC_DIR_NAME")
 
-CACHE_PROJECT_PATHS_PATH="$CACHE_DIR_PATH/$PROJECT_PATHS_FILE_NAME"
+CACHE_DIR_PATH="$LOCAL_WORKSPACE_RC_PATH/cache"
+CACHE_PROJECT_PATHS_PATH="$CACHE_DIR_PATH/project-paths"
 
-COMPLETION_PROJECT_LIST_PATH="$COMPLETION_DIR_PATH/$PROJECT_LIST_FILE_NAME"
-COMPLETION_CURRENT_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$CURRENT_BRANCH_LIST_FILE_NAME"
-COMPLETION_LOCAL_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$LOCAL_BRANCH_LIST_FILE_NAME"
-COMPLETION_REMOTE_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$REMOTE_BRANCH_LIST_FILE_NAME"
-COMPLETION_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/$BRANCH_LIST_FILE_NAME"
+COMPLETION_DIR_PATH="$LOCAL_WORKSPACE_RC_PATH/completion"
+COMPLETION_PROJECT_LIST_PATH="$COMPLETION_DIR_PATH/project-list"
+COMPLETION_CURRENT_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/current-branch-list"
+COMPLETION_LOCAL_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/local-branch-list"
+COMPLETION_REMOTE_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/remote-branch-list"
+COMPLETION_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/branch-list"
 
 SCRIPT_ACTIONS=('status' 'git' 'foreach' 'open' 'init' 'cache-workspace-info' 'install-completion-script')
 
@@ -627,6 +621,35 @@ array-index-of()
 }
 
 
+#
+# Configuration
+
+config-path-for-file()
+{
+	local config_file=$1
+
+	local path
+	for path in "${CONFIG_DIR_PATHS[@]}"
+	do
+		if [ -r "$path/$config_file" ]
+		then
+			printf '%s/%s\n' "$path" "$config_file"
+			return
+		fi
+	done
+
+	return 1
+}
+
+
+config-first-path-to-store-file()
+{
+	local config_file=$1
+
+	printf '%s/%s\n' "${CONFIG_DIR_PATHS[0]}" "$config_file"
+}
+
+
 get-action()
 {
 	local string=$1
@@ -670,12 +693,15 @@ cache-project-paths()
 	local cache_path=$1
 	local workspace_path=$2
 
-	# make '! -path <pattern>' options
 	local ignore_pattern_options=()
-	if [ -r "$CONFIG_IGNORE_PATH" ]
+
+	# make '! -path <pattern>' options for 'find'
+	local config_ignore_path
+	config_ignore_path="$(config-path-for-file "$IGNORE_FILE_NAME")"
+	if [ $? == 0 ]
 	then
 		# quoting patterns to prevent asterist expansion
-		local ignored_patterns=($(grep '^[^#][^ ]*$' "$CONFIG_IGNORE_PATH" | sed -e 's/^/"/' -e 's/$/"/'))
+		local ignored_patterns=($(grep '^[^#][^ ]*$' "$config_ignore_path" | sed -e 's/^/"/' -e 's/$/"/'))
 		for pattern in "${ignored_patterns[@]}"
 		do
 			# removing quotes, so they are not part of the pattern
@@ -1282,12 +1308,11 @@ apply-parameters()
 			;;
 
 		init)
-			mkdir -p "$CONFIG_DIR_PATH"
 			mkdir -p "$CACHE_DIR_PATH"
 			mkdir -p "$COMPLETION_DIR_PATH"
 
-			printf '%s\n' "$IGNORE_PATHS_FILE_COMMENT" > "$CONFIG_IGNORE_PATH"
-			printf '%s\n' "$CUSTOM_ACTIONS_FILE_COMMENT" > "$CONFIG_CUSTOM_ACTIONS_PATH"
+			local ignore_path=$(config-first-path-to-store-file "$IGNORE_FILE_NAME")
+			printf '%s\n' "$IGNORE_PATHS_FILE_COMMENT" > "$ignore_path"
 
 			printf-message 'Caching workspace info...'
 			cache-workspace-info
@@ -1444,18 +1469,22 @@ fi
 #
 # Custom commands and help message
 
-while read -r line
-do
-	action=$(get-action "$line")
-	command=$(get-command "$line")
-	options=$(get-options "$line" "$action")
-	description=$(get-description "$line")
+custom_actions_path="$(config-path-for-file "$CUSTOM_ACTIONS_FILE_NAME")"
+if [ $? == 0 ]
+then
+	while read -r line
+	do
+		action=$(get-action "$line")
+		command=$(get-command "$line")
+		options=$(get-options "$line" "$action")
+		description=$(get-description "$line")
 
-	CUSTOM_ACTIONS+=("$action")
-	CUSTOM_ACTIONS_OPTIONS+=("$options")
-	CUSTOM_ACTIONS_COMMANDS+=("$command")
-	CUSTOM_ACTIONS_DESCRIPTIONS+=("$description")
-done < <(grep -e '^\s*[^#][a-zA-Z0-9]\+.*' "$CONFIG_CUSTOM_ACTIONS_PATH")
+		CUSTOM_ACTIONS+=("$action")
+		CUSTOM_ACTIONS_OPTIONS+=("$options")
+		CUSTOM_ACTIONS_COMMANDS+=("$command")
+		CUSTOM_ACTIONS_DESCRIPTIONS+=("$description")
+	done < <(grep -e '^\s*[^#]' "$custom_actions_path")
+fi
 
 
 CUSTOM_ACTION_HELP=''
