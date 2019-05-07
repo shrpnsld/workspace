@@ -1016,6 +1016,100 @@ foreach-project-git()
 }
 
 
+show-help()
+{
+	local custom_action_help=''
+	local index
+	for (( index = 0; index < ${#CUSTOM_ACTIONS[@]}; ++index ))
+	do
+		local action=$(printf '%*s' -11 "${CUSTOM_ACTIONS[$index]}")
+		local description="${CUSTOM_ACTIONS_DESCRIPTIONS[$index]}"
+		if [ -z "$description" ]
+		then
+			description="\$ $SCRIPT_NAME ${CUSTOM_ACTIONS_OPTIONS[$index]} -- ${CUSTOM_ACTIONS_COMMANDS[$index]}"
+		fi
+
+		custom_action_help="$custom_action_help  $action $description\n"
+	done
+
+	local help_message=\
+"Do various stuff with multiple projects.
+
+\e[1mUSAGE\e[0m
+  $SCRIPT_NAME status [-P <project-path>] [-u | -U] [-n] [-s | -r]
+      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+
+  $SCRIPT_NAME git [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
+      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+      -- <git-command>...
+
+  $SCRIPT_NAME foreach [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
+      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+      -- <commands>...
+
+  $SCRIPT_NAME open [-P <project-path>] [-t] [-i] [-u | -U] [-n] [-s | -r]
+            [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+
+\e[1mACTIONS\e[0m
+  status      show git status for project.
+  git         run git command for each project.
+  foreach     run command for each project.
+  open        open projects in shell (default), Gnome-Terminal tabs or tmux panels.
+$custom_action_help
+\e[1mOPTIONS\e[0m
+  -W | --workspace-path <path>      Search path [default: current directory].
+  -p | --project <pattern>          Project name pattern.
+  -B | --branch <pattern>           Current branch name pattern.
+  -b | --branches <pattern>         Branch name pattern for local branches.
+  -r | --remote-branches <pattern>  Branch name pattern for remote branches.
+  -a | --all-branches <pattern>     Branch name pattern for all branches.
+  -s | --strict                     Match next pattern strictly.
+  -S | --strict-all                 Match all patterns strictly.
+  -n | --negate                     Negate next pattern.
+  -N | --negate-all                 Negate all patterns.
+  -u | --uncommited                 Match projects with uncommited changes.
+  -d | --ignore-detached            Do not match projects with detached HEAD.
+  -t | --tabs                       Open projects in current terminal tabs/panels.
+  -A | --apple-terminal             Open projects in Apple terminal tabs.
+  -G | --gnome-terminal             Open projects in Gnome terminal tabs.
+  -I | --iterm                      Open projects in iTerm tabs.
+  -X | --tmux                       Open projects in tmux panels.
+  -i | --interactive                Chose projects to do your stuff with.
+  -g | --ignore-failed              Do not prompt to deal with error for failed commands in 'git' and 'foreach'.
+  -h | --help                       Show this message.
+
+\e[1mADDITIONAL COMMANDS\e[0m
+    init                       initialize workspace resource directory (optional).
+    install-completion-script  Install bash completion script for project and branch names.
+    cache-workspace-info       Cache project paths and store project and branch names for completion script.
+
+\e[1mNOTES\e[0m
+    Project name is the name of the folder that is parent to '.git' folder.
+
+    If no '-s' or '-r' option is set, then <pattern> is searched as a part of a project/branch name.
+
+    Use quotes for '|', ';', '&&' and '||' inside <commands> for 'foreach'.
+
+    If any <command> in 'git' or 'foreach' failes during run, then script will prompt to open that project in shell to deal with issue manually.
+
+\e[1mEXAMPLES\e[0m
+    Get git status for all projects that contain 'feature' in any of their existing branch names (-b).
+    \e[1m$ $SCRIPT_NAME status -b feature\e[0m
+
+    Checkout to branch 'master' each project, that is not (-n) on 'master' branch (-B).
+    \e[1m$ $SCRIPT_NAME git -nB master -- checkout master\e[0m
+
+    Commit changes for each project, that has uncommited changes (-u) and contains 'feature/some' in it's current branch name (-B).
+    \e[1m$ $SCRIPT_NAME foreach -u -B feature/some -- git add . '&&' git commit\e[0m
+
+    Open in tmux panels (-x) projects, that contain 'feature' in their current branch name (-b).
+    \e[1m$ $SCRIPT_NAME open -x -b feature\e[0m
+"
+
+	printf-message "$help_message"
+}
+
+
 #
 # Parameters and options parsing/validating
 
@@ -1152,7 +1246,7 @@ parse-parameters()
 
 	if [ -z "$action" ] || [ "$action" == '-h' ] || [ "$action" == '--help' ]
 	then
-		printf-message "$HELP_MESSAGE"
+		show-help
 		return 2
 	fi
 
@@ -1467,7 +1561,7 @@ fi
 
 
 #
-# Custom commands and help message
+# Custom commands
 
 custom_actions_path="$(config-path-for-file "$CUSTOM_ACTIONS_FILE_NAME")"
 if [ $? == 0 ]
@@ -1485,95 +1579,6 @@ then
 		CUSTOM_ACTIONS_DESCRIPTIONS+=("$description")
 	done < <(grep -e '^\s*[^#]' "$custom_actions_path")
 fi
-
-
-CUSTOM_ACTION_HELP=''
-for (( index = 0; index < ${#CUSTOM_ACTIONS[@]}; ++index ))
-do
-	action=$(printf '%*s' -11 "${CUSTOM_ACTIONS[$index]}")
-	description="${CUSTOM_ACTIONS_DESCRIPTIONS[$index]}"
-	if [ -z "$description" ]
-	then
-		description="${CUSTOM_ACTIONS_COMMANDS[$index]}"
-	fi
-
-	CUSTOM_ACTION_HELP="$CUSTOM_ACTION_HELP  $action $description\n"
-done
-
-
-HELP_MESSAGE=\
-"Do various stuff with multiple projects.
-
-\e[1mUSAGE\e[0m
-  $SCRIPT_NAME status [-P <project-path>] [-u | -U] [-n] [-s | -r]
-      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-
-  $SCRIPT_NAME git [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
-      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-      -- <git-command>...
-
-  $SCRIPT_NAME foreach [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
-      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-      -- <commands>...
-
-  $SCRIPT_NAME open [-P <project-path>] [-t] [-i] [-u | -U] [-n] [-s | -r]
-            [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-
-\e[1mACTIONS\e[0m
-  status      show git status for project.
-  git         run git command for each project.
-  foreach     run command for each project.
-  open        open projects in shell (default), Gnome-Terminal tabs or tmux panels.
-$CUSTOM_ACTION_HELP
-\e[1mOPTIONS\e[0m
-  -W | --workspace-path <path>      Search path [default: current directory].
-  -p | --project <pattern>          Project name pattern.
-  -B | --branch <pattern>           Current branch name pattern.
-  -b | --branches <pattern>         Branch name pattern for local branches.
-  -r | --remote-branches <pattern>  Branch name pattern for remote branches.
-  -a | --all-branches <pattern>     Branch name pattern for all branches.
-  -s | --strict                     Match next pattern strictly.
-  -S | --strict-all                 Match all patterns strictly.
-  -n | --negate                     Negate next pattern.
-  -N | --negate-all                 Negate all patterns.
-  -u | --uncommited                 Match projects with uncommited changes.
-  -d | --ignore-detached            Do not match projects with detached HEAD.
-  -t | --tabs                       Open projects in current terminal tabs/panels.
-  -A | --apple-terminal             Open projects in Apple terminal tabs.
-  -G | --gnome-terminal             Open projects in Gnome terminal tabs.
-  -I | --iterm                      Open projects in iTerm tabs.
-  -X | --tmux                       Open projects in tmux panels.
-  -i | --interactive                Chose projects to do your stuff with.
-  -g | --ignore-failed              Do not prompt to deal with error for failed commands in 'git' and 'foreach'.
-  -h | --help                       Show this message.
-
-\e[1mADDITIONAL COMMANDS\e[0m
-    init                       initialize workspace resource directory (optional).
-    install-completion-script  Install bash completion script for project and branch names.
-    cache-workspace-info       Cache project paths and store project and branch names for completion script.
-
-\e[1mNOTES\e[0m
-    Project name is the name of the folder that is parent to '.git' folder.
-
-    If no '-s' or '-r' option is set, then <pattern> is searched as a part of a project/branch name.
-
-    Use quotes for '|', ';', '&&' and '||' inside <commands> for 'foreach'.
-
-    If any <command> in 'git' or 'foreach' failes during run, then script will prompt to open that project in shell to deal with issue manually.
-
-\e[1mEXAMPLES\e[0m
-    Get git status for all projects that contain 'feature' in any of their existing branch names (-b).
-    \e[1m$ $SCRIPT_NAME status -b feature\e[0m
-
-    Checkout to branch 'master' each project, that is not (-n) on 'master' branch (-B).
-    \e[1m$ $SCRIPT_NAME git -nB master -- checkout master\e[0m
-
-    Commit changes for each project, that has uncommited changes (-u) and contains 'feature/some' in it's current branch name (-B).
-    \e[1m$ $SCRIPT_NAME foreach -u -B feature/some -- git add . '&&' git commit\e[0m
-
-    Open in tmux panels (-x) projects, that contain 'feature' in their current branch name (-b).
-    \e[1m$ $SCRIPT_NAME open -x -b feature\e[0m
-"
 
 
 #
