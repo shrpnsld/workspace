@@ -564,7 +564,7 @@ exclusive()
 normalize-path()
 {
 	local path=$1
-	printf '%s\n' $(cd "$path"; pwd)
+	$(cd "$path"; pwd)
 }
 
 
@@ -927,6 +927,36 @@ start-tmux()
 }
 
 
+continue-tmux()
+{
+	if ! command-exists 'tmux'
+	then
+		printf-error 'tmux is not installed'
+		exit 1
+	fi
+
+	local project_paths=("$@")
+
+	local selected_paths=()
+	local path
+	for path in "${project_paths[@]}"
+	do
+		if prompt-user-to-select-project "$path" 'Open this repository? (y/n)'
+		then
+			selected_paths+=("$path")
+		fi
+	done
+
+	tmux new-window -c "${selected_paths[0]}"
+
+	for path in "${selected_paths[@]:1}"
+	do
+		tmux split-window -v -p 50 -c "${path}"
+		tmux select-layout tiled
+	done
+}
+
+
 foreach-project()
 {
 	local repository_paths=("$@")
@@ -1110,7 +1140,7 @@ parse-parameters()
 			return 1
 		fi
 
-		parameters+=(${CUSTOM_ACTIONS_OPTIONS[$index]})
+		parameters=(${CUSTOM_ACTIONS_OPTIONS[$index]} "${parameters[@]}")
 	fi
 
 	OPTION_ACTION="$action"
@@ -1286,7 +1316,7 @@ apply-parameters()
 		*)
 			DO_JOB_FUNCTION=foreach-project
 			local index=$(array-index-of "$OPTION_ACTION" "${CUSTOM_ACTIONS[@]}")
-			FOREACH_ARGUMENTS+=("${CUSTOM_ACTIONS_COMMANDS[$index]}")
+			FOREACH_ARGUMENTS=("${CUSTOM_ACTIONS_COMMANDS[$index]}" "${FOREACH_ARGUMENTS[@]}")
 			;;
 	esac
 
