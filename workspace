@@ -69,6 +69,24 @@ _WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH='"$COMPLETION_REMOTE_BRANCH_LIST_P
 _WORKSPACE_COMPLETION_BRANCH_LIST_PATH='"$COMPLETION_BRANCH_LIST_PATH"'
 
 
+_workspace-config-path-for-file()
+{
+	local config_file=$1
+
+	local path
+	for path in "${_WORKSPACE_CONFIG_DIR_PATHS[@]}"
+	do
+		if [ -r "$path/$config_file" ]
+		then
+			printf "%s/%s\n" "$path" "$config_file"
+			return
+		fi
+	done
+
+	return 1
+}
+
+
 _workspace-completion-is-short-option()
 {
 	local string=$1
@@ -82,14 +100,16 @@ _workspace-completion()
 	if [ $COMP_CWORD == 1 ]
 	then
 		local ACTIONS=('"${SCRIPT_ACTIONS[@]}"')
-		if [ -r "$_WORKSPACE_CONFIG_CUSTOM_ACTIONS_PATH" ]
+		local custom_actions_path
+		custom_actions_path=$(_workspace-config-path-for-file "$_WORKSPACE_CUSTOM_ACTIONS_FILE_NAME")
+		if [ $? == 0 ]
 		then
 			local line
 			while read -r line
 			do
 				local action="${line%% *}"
 				ACTIONS+=("$action")
-			done < <(grep -e '"'"'^\s*[^#][a-zA-Z0-9]\+.*'"'"' "$_WORKSPACE_CONFIG_CUSTOM_ACTIONS_PATH")
+			done < <(grep -e '"'"'^\s*[^#][a-zA-Z0-9]\+.*'"'"' "$custom_actions_path")
 		fi
 
 		COMPREPLY=($(compgen -W "${ACTIONS[*]}" "${COMP_WORDS[1]}"))
