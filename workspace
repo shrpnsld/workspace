@@ -40,6 +40,7 @@ CUSTOM_ACTIONS_DESCRIPTIONS=()
 WORKSPACE_RC_DIR_NAME="$SCRIPT_NAME-script"
 
 CUSTOM_ACTIONS_FILE_NAME='custom-actions'
+IMPLICIT_ARGUMENTS_FILE_NAME='implicit-arguments'
 IGNORE_FILE_NAME='ignore-paths'
 
 LOCAL_WORKSPACE_RC_PATH="./.$WORKSPACE_RC_DIR_NAME"
@@ -1609,7 +1610,20 @@ fi
 #
 # Script parameters
 
+implicit_arguments=()
+implicit_arguments_path=$(config-path-for-file "$IMPLICIT_ARGUMENTS_FILE_NAME")
+if [ $? == 0 ]
+then
+	while read -r line
+	do
+		option="${line%% *}"
+		value="${line#* }"
+		implicit_arguments+=("$option" "$value")
+	done < <(grep -e '^\s*[^#]' "$implicit_arguments_path")
+fi
+
 parse-action "$@"
+parse-parameters "${implicit_arguments[@]}"
 parse-parameters "${@:2}" && validate-options $1
 if [ $? != 0 ]
 then
