@@ -1259,10 +1259,9 @@ parse-option()
 }
 
 
-parse-parameters()
+parse-action()
 {
 	local action=$1
-	local parameters=("${@:2}")
 
 	if [ -z "$action" ] || [ "$action" == '-h' ] || [ "$action" == '--help' ]
 	then
@@ -1284,6 +1283,12 @@ parse-parameters()
 	fi
 
 	OPTION_ACTION="$action"
+}
+
+
+parse-parameters()
+{
+	local parameters=("$@")
 
 	local parameter_index
 	for (( parameter_index = 0; parameter_index < ${#parameters[@]}; ++parameter_index ))
@@ -1604,7 +1609,8 @@ fi
 #
 # Script parameters
 
-parse-parameters "$@" && validate-options $1
+parse-action "$@"
+parse-parameters "${@:2}" && validate-options $1
 if [ $? != 0 ]
 then
 	exit 1
