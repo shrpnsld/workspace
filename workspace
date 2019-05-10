@@ -1126,7 +1126,7 @@ $custom_action_help
     \e[1m$ $SCRIPT_NAME open -x -b feature\e[0m
 "
 
-	printf-message "$help_message"
+	printf "$help_message\n"
 }
 
 
@@ -1651,7 +1651,7 @@ do
 	matched_projects+=("$project_path")
 done
 
-printf-message '\n'
+printf '\n\n'
 
 if [ "${#matched_projects[@]}" == 0 ]
 then
