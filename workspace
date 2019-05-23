@@ -242,6 +242,7 @@ PRINT_INTERACTION_BACKEND=printf-interaction-default
 PRINT_WARNING_BACKEND=printf-warning-default
 PRINT_ERROR_BACKEND=printf-error-default
 DO_JOB_FUNCTION=''
+ABORT_OPEN_ACTION_EXIT_STATUS=66
 
 
 #
@@ -965,6 +966,14 @@ start-shell()
 		local project_name=$(basename "$path")
 		printf '\e[1;4m%s\e[0m\n' "$project_name"
 		"$CURRENT_SHELL" -c "cd '$path'; $CURRENT_SHELL"
+		if [ $? == $ABORT_OPEN_ACTION_EXIT_STATUS ]
+		then
+			if prompt-yes-no printf-warning 'shell exited with abort open action exit status (%s). Do you want to stop opening projects? (y/n) ' "$ABORT_OPEN_ACTION_EXIT_STATUS"
+			then
+				break
+			fi
+		fi
+
 		printf '\n'
 	done
 }
@@ -1203,6 +1212,7 @@ $custom_action_help
   --colored-messages                Use colored output for messages.
   --colored-interactions            Use colored output for interactions.
   --colored-errors                  Use colored output for errors.
+  --abort-open <0..127>             Abort 'open' action with exit status [default: 66].
   -h | --help                       Show this message.
 
 \e[1mADDITIONAL COMMANDS\e[0m
@@ -1424,6 +1434,11 @@ parse-option()
 
 		print-error)
 			PRINT_ERROR_BACKEND=$(string-trim-quotes "$value")
+			return 1
+			;;
+
+		abort-open)
+			ABORT_OPEN_ACTION_EXIT_STATUS=$value
 			return 1
 			;;
 
