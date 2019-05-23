@@ -5,26 +5,89 @@
 
 SCRIPT_NAME=$(basename $0)
 
-RED_TEXT='\e[0;31m'
-NO_STYLE_TEXT='\e[0m'
-ERROR_PREFIX="$SCRIPT_NAME"' error:'
 
-printf-error()
-{
-	printf "$ERROR_PREFIX" >&2
-	printf " $@\n\n" >&2
-}
+TEXT_STYLE_NORMAL='\e[0m'
+TEXT_STYLE_INTERACTION='\e[1;34m'
+TEXT_STYLE_WARNING='\e[1;35m'
+TEXT_STYLE_ERROR='\e[0;31m'
+
+
+OPTIONAL_INTERACTION_STYLE_BEGIN=''
+OPTIONAL_INTERACTION_STYLE_END=''
+OPTIONAL_WARNING_STYLE_BEGIN=''
+OPTIONAL_WARNING_STYLE_END=''
+OPTIONAL_ERROR_STYLE_BEGIN=''
+OPTIONAL_ERROR_STYLE_END=''
 
 
 printf-message()
 {
-	printf "$@\n"
+	$PRINT_MESSAGE_BACKEND "$@"
+}
+
+
+printf-interaction()
+{
+	$PRINT_INTERACTION_BACKEND "$@"
+}
+
+
+printf-warning()
+{
+	local message=$(printf "$OPTIONAL_WARNING_STYLE_BEGIN$SCRIPT_NAME warning:$OPTIONAL_WARNING_STYLE_END "; printf "$@")
+
+	$PRINT_WARNING_BACKEND "$message"
+}
+
+
+printf-error()
+{
+	local message=$(printf "$OPTIONAL_ERROR_STYLE_BEGIN$SCRIPT_NAME error:$OPTIONAL_ERROR_STYLE_END "; printf "$@")
+
+	$PRINT_ERROR_BACKEND "$message"
+}
+
+
+printf-message-default()
+{
+	local message=$(printf "$@")
+
+	printf '%s\n' "$message"
+}
+
+
+printf-interaction-default()
+{
+	local message=$(printf "$OPTIONAL_INTERACTION_STYLE_BEGIN"; printf "$@"; printf "$OPTIONAL_INTERACTION_STYLE_END")
+
+	printf '%s' "$message"
+}
+
+
+printf-warning-default()
+{
+	local message=$(printf "$@")
+
+	printf '%s' "$message"
+}
+
+
+printf-error-default()
+{
+	local message=$1
+
+	printf '%s\n\n' "$message" >&2
 }
 
 
 if [ -t 1 ] && [ $(tput colors) \> 0 ]
 then
-	ERROR_PREFIX="$RED_TEXT$ERROR_PREFIX$NO_STYLE_TEXT"
+	OPTIONAL_INTERACTION_STYLE_BEGIN="$TEXT_STYLE_INTERACTION"
+	OPTIONAL_INTERACTION_STYLE_END="$TEXT_STYLE_NORMAL"
+	OPTIONAL_WARNING_STYLE_BEGIN="$TEXT_STYLE_WARNING"
+	OPTIONAL_WARNING_STYLE_END="$TEXT_STYLE_NORMAL"
+	OPTIONAL_ERROR_STYLE_BEGIN="$TEXT_STYLE_ERROR"
+	OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
 fi
 
 
@@ -174,6 +237,10 @@ PROMPT_TO_USE_REPOSITORY_FUNCTION=nothing
 DEAL_WITH_FAILED_COMMAND_FUNCTION=deal-with-failed-command-manually
 OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-shell
 FOREACH_ARGUMENTS=()
+PRINT_MESSAGE_BACKEND=printf-message-default
+PRINT_INTERACTION_BACKEND=printf-interaction-default
+PRINT_WARNING_BACKEND=printf-warning-default
+PRINT_ERROR_BACKEND=printf-error-default
 DO_JOB_FUNCTION=''
 
 
@@ -516,14 +583,14 @@ command-exists()
 
 prompt-yes-no()
 {
-	local prompt=$1
+	local print_backend=$1
+	local prompt=$2
 
+	"$print_backend" "$prompt "
 	while :
 	do
 		local action
-		printf "$prompt "
 		read action
-		printf '\n'
 		case $action in
 			y)
 				return 0
@@ -534,7 +601,7 @@ prompt-yes-no()
 				;;
 
 			*)
-				printf-message '\n\e[34mType "y" or "n"\e[0m'
+				printf-interaction '\nType "y" or "n"\n'
 			;;
 		esac
 	done
@@ -551,7 +618,8 @@ deal-with-failed-command-manually()
 		return
 	fi
 
-	prompt-yes-no '\n\e[1;31mCommand exited with non-zero code.\nDo you want to open this project in shell to deal with error and run your command manualy? (y/n)\e[0m'
+	printf '\n'
+	prompt-yes-no printf-warning "command exited with non-zero code.\nDo you want to open this project in shell to deal with error and run your command manualy? (y/n)"
 	if [ $? == 0 ]
 	then
 		"$CURRENT_SHELL" -c "cd '$path'; $CURRENT_SHELL"
@@ -591,6 +659,20 @@ string-trim()
     string="${string#"${string%%[![:space:]]*}"}"
     string="${string%"${string##*[![:space:]]}"}"
     printf '%s\n' "$string"
+}
+
+
+string-trim-quotes()
+{
+	local string=$1
+
+	local first_char="${string:0:1}"
+	if [ "$first_char" == "'" ] || [ "$first_char" == '"' ]
+	then
+		printf '%s\n' "${string:1:${#string}-2}"
+	else
+		printf '%s\n' "$string"
+	fi
 }
 
 
@@ -836,7 +918,8 @@ prompt-user-to-select-project-implementation()
 	local prompt=$2
 
 	repository-status-pretty "$project_path"
-	prompt-yes-no "\n\e[1;34m$prompt\e[0m"
+	printf '\n'
+	prompt-yes-no printf-interaction "$prompt"
 }
 
 
@@ -1098,6 +1181,13 @@ $custom_action_help
   -X | --tmux                       Open projects in tmux panels.
   -i | --interactive                Chose projects to do your stuff with.
   -g | --ignore-failed              Do not prompt to deal with error for failed commands in 'git' and 'foreach'.
+  --print-message                   Print message with command.
+  --print-interaction               Print interactions with command.
+  --print-warrning                  Print warning with command.
+  --print-error                     Print message with command.
+  --colored-messages                Use colored output for messages.
+  --colored-interactions            Use colored output for interactions.
+  --colored-errors                  Use colored output for errors.
   -h | --help                       Show this message.
 
 \e[1mADDITIONAL COMMANDS\e[0m
@@ -1251,6 +1341,75 @@ parse-option()
 
 		g|ignore-failed)
 			OPTION_IGNORE_FAILED=true
+			;;
+
+		color)
+			OPTIONAL_INTERACTION_STYLE_BEGIN="$TEXT_STYLE_INTERACTION"
+			OPTIONAL_INTERACTION_STYLE_END="$TEXT_STYLE_NORMAL"
+			OPTIONAL_WARNING_STYLE_BEGIN="$TEXT_STYLE_WARNING"
+			OPTIONAL_WARNING_STYLE_END="$TEXT_STYLE_NORMAL"
+			OPTIONAL_ERROR_STYLE_BEGIN="$TEXT_STYLE_ERROR"
+			OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
+			;;
+
+		interaction-color)
+			OPTIONAL_INTERACTION_STYLE_BEGIN="$TEXT_STYLE_INTERACTION"
+			OPTIONAL_INTERACTION_STYLE_END="$TEXT_STYLE_NORMAL"
+			;;
+
+		warning-color)
+			OPTIONAL_WARNING_STYLE_BEGIN="$TEXT_STYLE_WARNING"
+			OPTIONAL_WARNING_STYLE_END="$TEXT_STYLE_NORMAL"
+			;;
+
+		error-color)
+			OPTIONAL_ERROR_STYLE_BEGIN="$TEXT_STYLE_ERROR"
+			OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
+			;;
+
+		no-color)
+			OPTIONAL_INTERACTION_STYLE_BEGIN=''
+			OPTIONAL_INTERACTION_STYLE_END=''
+			OPTIONAL_WARNING_STYLE_BEGIN=''
+			OPTIONAL_WARNING_STYLE_END=''
+			OPTIONAL_ERROR_STYLE_BEGIN=''
+			OPTIONAL_ERROR_STYLE_END=''
+			;;
+
+		no-interaction-color)
+			OPTIONAL_INTERACTION_STYLE_BEGIN=''
+			OPTIONAL_INTERACTION_STYLE_END=''
+			;;
+
+		no-warning-color)
+			OPTIONAL_WARNING_STYLE_BEGIN=''
+			OPTIONAL_WARNING_STYLE_END=''
+			;;
+
+		no-error-color)
+			OPTIONAL_ERROR_STYLE_BEGIN=''
+			OPTIONAL_ERROR_STYLE_END=''
+			;;
+
+		print-message)
+			PRINT_MESSAGE_BACKEND=$(string-trim-quotes "$value")
+			return 1
+			;;
+
+		print-interaction)
+			PRINT_INTERACTION_BACKEND=$(string-trim-quotes "$value")
+			return 1
+			;;
+
+
+		print-warning)
+			PRINT_WARNING_BACKEND=$(string-trim-quotes "$value")
+			return 1
+			;;
+
+		print-error)
+			PRINT_ERROR_BACKEND=$(string-trim-quotes "$value")
+			return 1
 			;;
 
 		*)
@@ -1578,16 +1737,6 @@ print-progress-string()
 
 
 #
-# Sanity checks
-
-if ! command-exists 'git'
-then
-	printf-error 'git is not installed'
-	exit 1
-fi
-
-
-#
 # Custom commands
 
 custom_actions_path="$(config-path-for-file "$CUSTOM_ACTIONS_FILE_NAME")"
@@ -1623,8 +1772,27 @@ then
 	done < <(grep -e '^\s*[^#]' "$implicit_arguments_path")
 fi
 
-parse-action "$@"
 parse-parameters "${implicit_arguments[@]}"
+
+#
+# Sanity checks
+
+if ! command-exists 'git'
+then
+	printf-error 'git is not installed'
+	exit 1
+fi
+
+
+#
+# Parameters
+
+parse-action "$@"
+if [ $? != 0 ]
+then
+	exit 1
+fi
+
 parse-parameters "${@:2}" && validate-options $1
 if [ $? != 0 ]
 then
