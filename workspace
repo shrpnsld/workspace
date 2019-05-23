@@ -120,7 +120,7 @@ COMPLETION_LOCAL_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/local-branch-list"
 COMPLETION_REMOTE_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/remote-branch-list"
 COMPLETION_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/branch-list"
 
-SCRIPT_ACTIONS=('status' 'git' 'foreach' 'open' 'init' 'cache-workspace-info' 'install-completion-script')
+SCRIPT_ACTIONS=('status' 'list' 'git' 'foreach' 'open' 'init' 'cache-workspace-info' 'install-completion-script')
 
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
@@ -936,6 +936,20 @@ show-repositories-status()
 }
 
 
+list-repositories()
+{
+	local repository_paths=("$@")
+
+	local path
+	for path in "${repository_paths[@]}"
+	do
+		local project_name=$(basename "$path")
+		printf '\e[1m%s\e[0m -- %s\n' "$project_name" "$path"
+	done
+	printf '\n'
+}
+
+
 start-shell()
 {
 	local project_paths=("$@")
@@ -1157,6 +1171,7 @@ show-help()
 
 \e[1mACTIONS\e[0m
   status      show git status for project.
+  list        list projects.
   git         run git command for each project.
   foreach     run command for each project.
   open        open projects in shell (default), Gnome-Terminal tabs or tmux panels.
@@ -1517,7 +1532,7 @@ validate-options()
 	local action=$1
 
 	case $action in
-		status)
+		status|list)
 			if $OPTION_TERMINAL_TABS || $OPTION_APPLE_TERMINAL || $OPTION_GNOME_TERMINAL || $OPTION_ITERM || $OPTION_TMUX
 			then
 				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" action'
@@ -1573,6 +1588,10 @@ apply-parameters()
 	case $OPTION_ACTION in
 		status)
 			DO_JOB_FUNCTION=show-repositories-status
+			;;
+
+		list)
+			DO_JOB_FUNCTION=list-repositories
 			;;
 
 		open)
