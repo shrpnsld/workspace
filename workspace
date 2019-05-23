@@ -585,9 +585,8 @@ command-exists()
 prompt-yes-no()
 {
 	local print_backend=$1
-	local prompt=$2
 
-	"$print_backend" "$prompt "
+	"$print_backend" "${@:2}"
 	while :
 	do
 		local action
@@ -620,8 +619,7 @@ deal-with-failed-command-manually()
 	fi
 
 	printf '\n'
-	prompt-yes-no printf-warning "command exited with non-zero code.\nDo you want to open this project in shell to deal with error and run your command manualy? (y/n)"
-	if [ $? == 0 ]
+	if prompt-yes-no printf-warning "command exited with non-zero code.\nDo you want to open this project in shell to deal with error and run your command manualy? (y/n) "
 	then
 		"$CURRENT_SHELL" -c "cd '$path'; $CURRENT_SHELL"
 	fi
@@ -1179,7 +1177,7 @@ show-help()
             [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
 
 \e[1mACTIONS\e[0m
-  status      show git status for project.
+  status      show git status for projects.
   list        list projects.
   git         run git command for each project.
   foreach     run command for each project.
