@@ -1152,7 +1152,15 @@ show-help()
 		local description="${CUSTOM_ACTIONS_DESCRIPTIONS[$index]}"
 		if [ -z "$description" ]
 		then
-			description="\$ $SCRIPT_NAME ${CUSTOM_ACTIONS_OPTIONS[$index]} -- ${CUSTOM_ACTIONS_COMMANDS[$index]}"
+			local options="${CUSTOM_ACTIONS_OPTIONS[$index]}"
+			if [ -n "$options" ]
+			then
+				local delimiter=' '
+			else
+				local delimiter=''
+			fi
+
+			description="\$ $SCRIPT_NAME $options$delimiter[<...>] -- ${CUSTOM_ACTIONS_COMMANDS[$index]} [<...>]"
 		fi
 
 		custom_action_help="$custom_action_help  $action $description\n"
