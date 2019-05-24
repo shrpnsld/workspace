@@ -120,7 +120,7 @@ COMPLETION_LOCAL_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/local-branch-list"
 COMPLETION_REMOTE_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/remote-branch-list"
 COMPLETION_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/branch-list"
 
-SCRIPT_ACTIONS=('status' 'list' 'git' 'foreach' 'open' 'init' 'cache-workspace-info' 'install-completion-script')
+SCRIPT_ACTIONS=('status' 'list' 'git' 'foreach' 'open' 'cache-workspace-info' 'install-completion-script')
 
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
@@ -1214,7 +1214,6 @@ $custom_action_help
   -h | --help                       Show this message.
 
 \e[1mADDITIONAL COMMANDS\e[0m
-    init                       initialize workspace resource directory (optional).
     install-completion-script  Install bash completion script for project and branch names.
     cache-workspace-info       Cache project paths and store project and branch names for completion script.
 
@@ -1617,18 +1616,6 @@ apply-parameters()
 
 		foreach)
 			DO_JOB_FUNCTION=foreach-project
-			;;
-
-		init)
-			mkdir -p "$CACHE_DIR_PATH"
-			mkdir -p "$COMPLETION_DIR_PATH"
-
-			local ignore_path=$(config-first-path-to-store-file "$IGNORE_FILE_NAME")
-			printf '%s\n' "$IGNORE_PATHS_FILE_COMMENT" > "$ignore_path"
-
-			printf-message 'Caching workspace info...'
-			cache-workspace-info
-			exit
 			;;
 
 		cache-workspace-info)
