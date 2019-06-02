@@ -744,7 +744,7 @@ normalize-path()
 }
 
 
-string-trim()
+string-trim-spaces()
 {
     local string=$1
 
@@ -850,7 +850,7 @@ get-action()
 {
 	local string=$1
 
-	string-trim "${string%% *}"
+	string-trim-spaces "${string%% *}"
 }
 
 
@@ -860,7 +860,7 @@ get-options()
 	local action=$2
 
 	string="${string#$action}"
-	string-trim "${string%%--*}"
+	string-trim-spaces "${string%%--*}"
 }
 
 
@@ -869,7 +869,7 @@ get-command()
 	local string=$1
 
 	string="${string#*-- }"
-	string-trim "${string%#*}"
+	string-trim-spaces "${string%#*}"
 }
 
 
@@ -877,7 +877,7 @@ get-description()
 {
 	local string=$1
 
-	[[ $string =~ ^.*#.*$ ]] && string-trim "${line#*#}"
+	[[ $string =~ ^.*#.*$ ]] && string-trim-spaces "${line#*#}"
 }
 
 
@@ -1853,13 +1853,13 @@ then
 	while read -r line
 	do
 		action=$(get-action "$line")
-		command=$(get-command "$line")
+		cmd=$(get-command "$line")
 		options=$(get-options "$line" "$action")
 		description=$(get-description "$line")
 
 		CUSTOM_ACTIONS+=("$action")
 		CUSTOM_ACTIONS_OPTIONS+=("$options")
-		CUSTOM_ACTIONS_COMMANDS+=("$command")
+		CUSTOM_ACTIONS_COMMANDS+=("$cmd")
 		CUSTOM_ACTIONS_DESCRIPTIONS+=("$description")
 	done < <(grep -e '^\s*[^#]' "$custom_actions_path")
 fi
