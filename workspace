@@ -846,7 +846,7 @@ config-first-path-to-store-file()
 }
 
 
-get-action()
+custom-actions-config-get-action()
 {
 	local string=$1
 
@@ -854,7 +854,7 @@ get-action()
 }
 
 
-get-options()
+custom-actions-config-get-options()
 {
 	local string=$1
 	local action=$2
@@ -864,7 +864,7 @@ get-options()
 }
 
 
-get-command()
+custom-actions-config-get-command()
 {
 	local string=$1
 
@@ -873,7 +873,7 @@ get-command()
 }
 
 
-get-description()
+custom-actions-config-get-description()
 {
 	local string=$1
 
@@ -1196,7 +1196,7 @@ show-help()
 			description="\$ $SCRIPT_NAME $options[<...>] -- ${CUSTOM_ACTIONS_COMMANDS[$index]} [<...>]"
 		fi
 
-		custom_action_help="$custom_action_help  $action $description\n"
+		custom_action_help+="  $action $description\n"
 	done
 
 	printf \
@@ -1873,10 +1873,10 @@ if [ $? == 0 ]
 then
 	while read -r line
 	do
-		action=$(get-action "$line")
-		cmd=$(get-command "$line")
-		options=$(get-options "$line" "$action")
-		description=$(get-description "$line")
+		action=$(custom-actions-config-get-action "$line")
+		cmd=$(custom-actions-config-get-command "$line")
+		options=$(custom-actions-config-get-options "$line" "$action")
+		description=$(custom-actions-config-get-description "$line")
 
 		CUSTOM_ACTIONS+=("$action")
 		CUSTOM_ACTIONS_OPTIONS+=("$options")
