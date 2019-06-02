@@ -157,28 +157,29 @@ _'"$SCRIPT_NAME"'-is-short-option()
 }
 
 
-_'"$SCRIPT_NAME"'-read-branch-completion-sources()
+_'"$SCRIPT_NAME"'-cache-branch-names()
 {
 	local completion_source_patterns_path=$1
+	local cache_path=$2
 
-	if [ "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS" -ot "$completion_source_patterns_path" ]
+	if [ ! "$cache_path" -ot "$completion_source_patterns_path" ]
 	then
-		local path_pattern_options=()
-		local pattern
-		while read -r pattern
-		do
-			if [ ${#path_pattern_options[@]} \> 0 ]
-			then
-				path_pattern_options+=("-or")
-			fi
-
-			path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
-		done < <(grep "^[^#][^ ]*$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
-
-		find . "(" "${path_pattern_options[@]}" ")" -type d -name ".git" -fprintf "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS" "%h\n"
+		return
 	fi
 
-	cat "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS"
+	local path_pattern_options=()
+	local pattern
+	while read -r pattern
+	do
+		if [ ${#path_pattern_options[@]} \> 0 ]
+		then
+			path_pattern_options+=("-or")
+		fi
+
+		path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
+	done < <(grep "^[^#][^ ]*$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
+
+	find . "(" "${path_pattern_options[@]}" ")" -type d -name ".git" -prune -and -fprintf "$cache_path" "%h\n"
 }
 
 
@@ -193,12 +194,18 @@ _'"$SCRIPT_NAME"'-branch-list()
 		return
 	fi
 
+	_'"$SCRIPT_NAME"'-cache-branch-names "$completion_source_patterns_path" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS"
+	if [ ! -r "$completion_source_patterns_path" ]
+	then
+		return
+	fi
+
 	local branches=()
 	local path
 	while read -r path
 	do
 		branches+=($(cd "$path"; $git_branch_command $git_branch_option | grep -v "HEAD detached at" | sed -e "s/* //" -e "s/  //"))
-	done < <(_'"$SCRIPT_NAME"'-read-branch-completion-sources "$completion_source_patterns_path")
+	done < <(cat "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS")
 
 	local tokens=()
 	local branch
