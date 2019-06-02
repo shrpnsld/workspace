@@ -875,32 +875,27 @@ cache-project-paths()
 	local cache_path=$1
 	local workspace_path=$2
 
-	local ignore_pattern_options=()
-
 	# make '! -path <pattern>' options for 'find'
+	local ignore_pattern_options=()
 	local config_ignore_path
 	config_ignore_path="$(config-path-for-file "$IGNORE_FILE_NAME")"
 	if [ $? == 0 ]
 	then
-		# quoting patterns to prevent asterist expansion
-		local ignored_patterns=($(grep '^[^#][^ ]*$' "$config_ignore_path" | sed -e 's/^/"/' -e 's/$/"/'))
-		for pattern in "${ignored_patterns[@]}"
+		local pattern
+		while read -r pattern
 		do
+			if [ ${#ignore_pattern_options} \> 0 ]
+			then
+				ignore_pattern_options+=('-and')
+			fi
+
 			# removing quotes, so they are not part of the pattern
 			ignore_pattern_options+=('!' '-path' "${pattern:1:${#pattern}-2}")
-		done
+		done < <(grep '^[^#][^ ]*$' "$config_ignore_path" | sed -e 's/^/"/' -e 's/$/"/') # quoting patterns to prevent asterisk expansion
 	fi
 
 	# collect paths
-	local git_dirs=($(find "$workspace_path" "${ignore_pattern_options[@]}" -type d -name '.git'))
-	local project_paths=()
-	local git_dir
-	for git_dir in "${git_dirs[@]}"
-	do
-		project_paths+=("$(dirname "$git_dir")")
-	done
-
-	printf '%s\n' "${project_paths[@]}" > "$cache_path"
+	find "$workspace_path" "${ignore_pattern_options[@]}" -type d -name '.git' -fprintf "$cache_path" '%h\n'
 }
 
 
