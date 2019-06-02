@@ -1520,23 +1520,39 @@ parse-option()
 			;;
 
 		print-message)
-			PRINT_MESSAGE_BACKEND=$(string-trim-quotes "$value")
+			local backend=$(string-trim-quotes "$value")
+			if bash -c "$backend test" &> /dev/null
+			then
+				PRINT_MESSAGE_BACKEND="$backend"
+			fi
 			return 1
 			;;
 
 		print-interaction)
-			PRINT_INTERACTION_BACKEND=$(string-trim-quotes "$value")
+			local backend=$(string-trim-quotes "$value")
+			if bash -c "$backend test" &> /dev/null
+			then
+				PRINT_INTERACTION_BACKEND="$backend"
+			fi
 			return 1
 			;;
 
 
 		print-warning)
-			PRINT_WARNING_BACKEND=$(string-trim-quotes "$value")
+			local backend=$(string-trim-quotes "$value")
+			if bash -c "$backend test" &> /dev/null
+			then
+				PRINT_WARNING_BACKEND="$backend"
+			fi
 			return 1
 			;;
 
 		print-error)
-			PRINT_ERROR_BACKEND=$(string-trim-quotes "$value")
+			local backend=$(string-trim-quotes "$value")
+			if bash -c "$backend test" &> /dev/null
+			then
+				PRINT_ERROR_BACKEND="$backend"
+			fi
 			return 1
 			;;
 
