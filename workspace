@@ -1013,7 +1013,7 @@ start-gnome-terminal()
 	if ! command-exists 'gnome-terminal'
 	then
 		printf-error 'gnome-terminal is not installed'
-		exit 1
+		return 1
 	fi
 
 	local project_paths=("$@")
@@ -1082,7 +1082,7 @@ start-tmux()
 	if ! command-exists 'tmux'
 	then
 		printf-error 'tmux is not installed'
-		exit 1
+		return 1
 	fi
 
 	local project_paths=("$@")
@@ -1115,7 +1115,7 @@ continue-tmux()
 	if ! command-exists 'tmux'
 	then
 		printf-error 'tmux is not installed'
-		exit 1
+		return 1
 	fi
 
 	local project_paths=("$@")
@@ -1259,7 +1259,7 @@ pick-project-and-perform-action()
 		cache-workspace-info
 		if [ $? != 0 ]
 		then
-			exit 1
+			return 1
 		fi
 	fi
 
@@ -1268,7 +1268,7 @@ pick-project-and-perform-action()
 	if [ $project_count == 0 ]
 	then
 		printf-error 'no projects found'
-		exit 1
+		return 1
 	fi
 
 	printf-message 'Scanning projects...'
@@ -1303,7 +1303,7 @@ pick-project-and-perform-action()
 	if [ "${#matched_projects[@]}" == 0 ]
 	then
 		printf-message 'no matching projects found'
-		exit
+		return
 	fi
 
 	perform-action "${matched_projects[@]}"
@@ -1317,7 +1317,7 @@ install-completion-script()
 	if ! [ -w "$bash_completion_dir" ]
 	then
 		printf-error 'permission denied'
-		exit 1
+		return 1
 	fi
 
 	printf '%s\n' "$BASH_COMPLETION_SCRIPT" > "$bash_completion_dir/$SCRIPT_NAME"
@@ -1562,8 +1562,7 @@ parse-option()
 			;;
 
 		*)
-			printf-error 'unknown option "%s"' "$option"
-			exit 1
+			return 255
 			;;
 	esac
 }
@@ -1608,6 +1607,11 @@ parse-parameters()
 		local parameter
 		parameter=$(check-parameter "${parameters[$parameter_index]}")
 		local parameter_type=$?
+		if [ $parameter_type == $PARAM_TYPE_DELIMITER ]
+		then
+			printf-error 'bad parameter format "%s"' "$parameter"
+			return 1
+		fi
 
 		case $parameter_type in
 			$PARAM_TYPE_SHORT_OPTION_LIST)
@@ -1618,6 +1622,12 @@ parse-parameters()
 				do
 					local option="${parameter:$index:1}"
 					parse-option "$option" "$value"
+					if [ $? == 255 ]
+					then
+						printf-error 'unknown option "%s"' "$option"
+						return 1
+					fi
+
 					if [ $? != 0 ]
 					then
 						(( parameter_index += 1 ))
@@ -1638,11 +1648,6 @@ parse-parameters()
 			$PARAM_TYPE_DELIMITER)
 				(( ++parameter_index ))
 				break
-				;;
-
-			$PARAM_TYPE_BAD_PARAMETER)
-				printf-error 'bad parameter format "%s"' "$parameter"
-				exit 1
 				;;
 		esac
 	done
@@ -1714,7 +1719,7 @@ validate-options()
 	if [ -n "$OPTION_WORKSPACE_PATH" ] && [ ! -d "$OPTION_WORKSPACE_PATH" ]
 	then
 		printf-error "'"'%s'"'"' does not exist' "$OPTION_WORKSPACE_PATH"
-		exit 1
+		return 1
 	fi
 }
 
