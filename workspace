@@ -327,7 +327,8 @@ PRINT_MESSAGE_BACKEND=printf-message-default
 PRINT_INTERACTION_BACKEND=printf-interaction-default
 PRINT_WARNING_BACKEND=printf-warning-default
 PRINT_ERROR_BACKEND=printf-error-default
-DO_JOB_FUNCTION=''
+DO_JOB_FUNCTION=pick-project-and-perform-action
+PERFORM_ACTION_FUNCTION=''
 ABORT_OPEN_ACTION_EXIT_STATUS=66
 
 
@@ -375,6 +376,12 @@ open-projects()
 do-job()
 {
 	"$DO_JOB_FUNCTION" "$@"
+}
+
+
+perform-action()
+{
+	"$PERFORM_ACTION_FUNCTION" "$@"
 }
 
 
@@ -875,7 +882,7 @@ get-description()
 
 
 #
-# Jobs
+# Actions
 
 cache-project-paths()
 {
@@ -932,22 +939,6 @@ cache-project-names()
 	project_list+=("${parts[@]}")
 
 	printf '%s\n' "${project_list[@]}" | sort | uniq > "$cache_path"
-}
-
-
-cache-workspace-info()
-{
-	mkdir -p "$CACHE_DIR_PATH"
-	if [ $? != 0 ]
-	then
-		printf-error 'failed to create "%s" directory' "$CACHE_DIR_PATH"
-		return 1
-	fi
-
-	cache-project-paths "$CACHE_PROJECT_PATHS_PATH" "$WORKSPACE_PATH"
-
-	local project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
-	cache-project-names "$COMPLETION_PROJECT_LIST_PATH" "${project_paths[@]}"
 }
 
 
@@ -1182,6 +1173,9 @@ foreach-project-git()
 }
 
 
+#
+# Jobs
+
 show-help()
 {
 	local custom_action_help=''
@@ -1255,6 +1249,104 @@ $custom_action_help
 \e[1mMore info at \e[4mhttps://github.com/shrpnsld/workspace\e[0m
 
 "
+}
+
+
+pick-project-and-perform-action()
+{
+	if [ ! -r "$CACHE_PROJECT_PATHS_PATH" ]
+	then
+		cache-workspace-info
+		if [ $? != 0 ]
+		then
+			exit 1
+		fi
+	fi
+
+	project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
+	project_count="${#project_paths[@]}"
+	if [ $project_count == 0 ]
+	then
+		printf-error 'no projects found'
+		exit 1
+	fi
+
+	printf-message 'Scanning projects...'
+	matched_projects=()
+	for (( index = 0; ; ++index ))
+	do
+		print-progress-string $index $project_count
+
+		if [ $index == $project_count ]
+		then
+			break;
+		fi
+
+		project_path="${project_paths[$index]}"
+		if [ ! -d "$project_path" ]
+		then
+			# mark cache as outdated
+			continue
+		fi
+
+		run-matchers "$project_path"
+		if [ $? != 0 ]
+		then
+			continue
+		fi
+
+		matched_projects+=("$project_path")
+	done
+
+	printf '\n\n'
+
+	if [ "${#matched_projects[@]}" == 0 ]
+	then
+		printf-message 'no matching projects found'
+		exit
+	fi
+
+	perform-action "${matched_projects[@]}"
+	printf-message 'Done.'
+}
+
+
+install-completion-script()
+{
+	local bash_completion_dir='/etc/bash_completion.d/'
+	if ! [ -w "$bash_completion_dir" ]
+	then
+		printf-error 'permission denied'
+		exit 1
+	fi
+
+	printf '%s\n' "$BASH_COMPLETION_SCRIPT" > "$bash_completion_dir/$SCRIPT_NAME"
+	printf-message 'please restart shell'
+}
+
+
+cache-workspace-info()
+{
+	mkdir -p "$CACHE_DIR_PATH"
+	if [ $? != 0 ]
+	then
+		printf-error 'failed to create "%s" directory' "$CACHE_DIR_PATH"
+		return 1
+	fi
+
+	mkdir -p "$COMPLETION_DIR_PATH"
+	if [ $? != 0 ]
+	then
+		printf-error 'failed to create "%s" directory' "$COMPLETION_DIR_PATH"
+		return 1
+	fi
+
+	cache-project-paths "$CACHE_PROJECT_PATHS_PATH" "$WORKSPACE_PATH"
+
+	local project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
+	cache-project-names "$COMPLETION_PROJECT_LIST_PATH" "${project_paths[@]}"
+
+	printf-message 'Done.'
 }
 
 
@@ -1465,26 +1557,28 @@ parse-action()
 {
 	local action=$1
 
-	if [ -z "$action" ] || [ "$action" == '-h' ] || [ "$action" == '--help' ]
-	then
-		show-help
-		return 2
-	fi
+	case "$action" in
+		''|-h|--help)
+			DO_JOB_FUNCTION=show-help
+			;;
 
-	if ! array-contains "$action" "${SCRIPT_ACTIONS[@]}"
-	then
-		local index
-		index=$(array-index-of "$action" "${CUSTOM_ACTIONS[@]}")
-		if [ $? != 0 ]
-		then
-			printf-error 'unknown action '"'$action'"
-			return 1
-		fi
+		cache-workspace-info)
+			DO_JOB_FUNCTION=cache-workspace-info
+			;;
 
-		parameters=(${CUSTOM_ACTIONS_OPTIONS[$index]} "${parameters[@]}")
-	fi
+		install-completion-script)
+			DO_JOB_FUNCTION=install-completion-script
+			;;
 
-	OPTION_ACTION="$action"
+		*)
+			if ! array-contains "$action" "${SCRIPT_ACTIONS[@]}" "${CUSTOM_ACTIONS[@]}"
+			then
+				return 1
+			fi
+
+			OPTION_ACTION="$action"
+			;;
+	esac
 }
 
 
@@ -1613,46 +1707,27 @@ apply-parameters()
 {
 	case $OPTION_ACTION in
 		status)
-			DO_JOB_FUNCTION=show-repositories-status
+			PERFORM_ACTION_FUNCTION=show-repositories-status
 			;;
 
 		list)
-			DO_JOB_FUNCTION=list-repositories
+			PERFORM_ACTION_FUNCTION=list-repositories
 			;;
 
 		open)
-			DO_JOB_FUNCTION=open-projects
+			PERFORM_ACTION_FUNCTION=open-projects
 			;;
 
 		git)
-			DO_JOB_FUNCTION=foreach-project-git
+			PERFORM_ACTION_FUNCTION=foreach-project-git
 			;;
 
 		foreach)
-			DO_JOB_FUNCTION=foreach-project
-			;;
-
-		cache-workspace-info)
-			printf-message 'Caching workspace info...'
-			cache-workspace-info
-			exit
-			;;
-
-		install-completion-script)
-			local bash_completion_dir='/etc/bash_completion.d/'
-			if ! [ -w "$bash_completion_dir" ]
-			then
-				printf-error 'permission denied'
-				exit 1
-			fi
-
-			printf '%s\n' "$BASH_COMPLETION_SCRIPT" > "$bash_completion_dir/$SCRIPT_NAME"
-			printf-message 'please restart shell'
-			exit
+			PERFORM_ACTION_FUNCTION=foreach-project
 			;;
 
 		*)
-			DO_JOB_FUNCTION=foreach-project
+			PERFORM_ACTION_FUNCTION=foreach-project
 			local index=$(array-index-of "$OPTION_ACTION" "${CUSTOM_ACTIONS[@]}")
 			FOREACH_ARGUMENTS=("${CUSTOM_ACTIONS_COMMANDS[$index]}" "${FOREACH_ARGUMENTS[@]}")
 			;;
@@ -1823,10 +1898,11 @@ fi
 parse-action "$@"
 if [ $? != 0 ]
 then
+	printf-error 'unknown action "%s"' "$1"
 	exit 1
 fi
 
-parse-parameters "${@:2}" && validate-options $1
+parse-parameters "${@:2}" && validate-options "$1"
 if [ $? != 0 ]
 then
 	exit 1
@@ -1838,59 +1914,5 @@ apply-parameters
 #
 # Main
 
-if [ ! -r "$CACHE_PROJECT_PATHS_PATH" ]
-then
-	printf-message 'Caching workspace info...'
-	cache-workspace-info
-	if [ $? != 0 ]
-	then
-		exit 1
-	fi
-fi
-
-project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
-project_count="${#project_paths[@]}"
-if [ $project_count == 0 ]
-then
-	printf-error 'no projects found'
-	exit 1
-fi
-
-printf-message 'Scanning projects...'
-matched_projects=()
-for (( index = 0; ; ++index ))
-do
-	print-progress-string $index $project_count
-
-	if [ $index == $project_count ]
-	then
-		break;
-	fi
-
-	project_path="${project_paths[$index]}"
-	if [ ! -d "$project_path" ]
-	then
-		# mark cache as outdated
-		continue
-	fi
-
-	run-matchers "$project_path"
-	if [ $? != 0 ]
-	then
-		continue
-	fi
-
-	matched_projects+=("$project_path")
-done
-
-printf '\n\n'
-
-if [ "${#matched_projects[@]}" == 0 ]
-then
-	printf-message 'no matching projects found'
-	exit
-fi
-
-do-job "${matched_projects[@]}"
-printf-message 'Done.'
+do-job
 
