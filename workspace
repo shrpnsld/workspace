@@ -105,6 +105,7 @@ WORKSPACE_RC_DIR_NAME="$SCRIPT_NAME-script"
 CUSTOM_ACTIONS_FILE_NAME='custom-actions'
 IMPLICIT_ARGUMENTS_FILE_NAME='implicit-arguments'
 IGNORE_FILE_NAME='ignore-paths'
+COMPLETION_SOURCES_PATTERNS_FILE_NAME='completion-sources'
 
 LOCAL_WORKSPACE_RC_PATH="./.$WORKSPACE_RC_DIR_NAME"
 
@@ -114,32 +115,27 @@ CACHE_DIR_PATH="$LOCAL_WORKSPACE_RC_PATH/cache"
 CACHE_PROJECT_PATHS_PATH="$CACHE_DIR_PATH/project-paths"
 
 COMPLETION_DIR_PATH="$LOCAL_WORKSPACE_RC_PATH/completion"
+COMPLETION_SOURCE_PROJECTS_PATH="$COMPLETION_DIR_PATH/source-projects"
 COMPLETION_PROJECT_LIST_PATH="$COMPLETION_DIR_PATH/project-list"
-COMPLETION_CURRENT_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/current-branch-list"
-COMPLETION_LOCAL_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/local-branch-list"
-COMPLETION_REMOTE_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/remote-branch-list"
-COMPLETION_BRANCH_LIST_PATH="$COMPLETION_DIR_PATH/branch-list"
 
 SCRIPT_ACTIONS=('status' 'list' 'git' 'foreach' 'open' 'cache-workspace-info' 'install-completion-script')
 
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
 
-_WORKSPACE_CONFIG_DIR_PATHS=('"${CONFIG_DIR_PATHS[@]}"')
-_WORKSPACE_CUSTOM_ACTIONS_FILE_NAME='"$CUSTOM_ACTIONS_FILE_NAME"'
-_WORKSPACE_COMPLETION_PROJECT_LIST_PATH='"$COMPLETION_PROJECT_LIST_PATH"'
-_WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH='"$COMPLETION_CURRENT_BRANCH_LIST_PATH"'
-_WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH='"$COMPLETION_LOCAL_BRANCH_LIST_PATH"'
-_WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH='"$COMPLETION_REMOTE_BRANCH_LIST_PATH"'
-_WORKSPACE_COMPLETION_BRANCH_LIST_PATH='"$COMPLETION_BRANCH_LIST_PATH"'
+_'"$SCRIPT_NAME"'_CONFIG_DIR_PATHS=('"${CONFIG_DIR_PATHS[@]}"')
+_'"$SCRIPT_NAME"'_CUSTOM_ACTIONS_FILE_NAME='"$CUSTOM_ACTIONS_FILE_NAME"'
+_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME='"$COMPLETION_SOURCES_PATTERNS_FILE_NAME"'
+_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS='"$COMPLETION_SOURCE_PROJECTS_PATH"'
+_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH='"$COMPLETION_PROJECT_LIST_PATH"'
 
 
-_workspace-config-path-for-file()
+_'"$SCRIPT_NAME"'-config-path-for-file()
 {
 	local config_file=$1
 
 	local path
-	for path in "${_WORKSPACE_CONFIG_DIR_PATHS[@]}"
+	for path in "${_'"$SCRIPT_NAME"'_CONFIG_DIR_PATHS[@]}"
 	do
 		if [ -r "$path/$config_file" ]
 		then
@@ -152,21 +148,80 @@ _workspace-config-path-for-file()
 }
 
 
-_workspace-completion-is-short-option()
+_'"$SCRIPT_NAME"'-is-short-option()
 {
 	local string=$1
+	local option=$2
 
-	[ "${string:0:1}" == "-" ] && [ "${string:1:1}" != "-" ]
+	[ "${string:0:1}" == "-" ] && [ "${string:1:1}" != "-" ] && [ "${string: -1}" == "$option" ]
 }
 
 
-_workspace-completion()
+_'"$SCRIPT_NAME"'-read-branch-completion-sources()
+{
+	local completion_source_patterns_path=$1
+
+	if [ "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS" -ot "$completion_source_patterns_path" ]
+	then
+		local path_pattern_options=()
+		local pattern
+		while read -r pattern
+		do
+			if [ ${#path_pattern_options[@]} \> 0 ]
+			then
+				path_pattern_options+=("-or")
+			fi
+
+			path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
+		done < <(grep "^[^#][^ ]*$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
+
+		find . "(" "${path_pattern_options[@]}" ")" -type d -name ".git" -fprintf "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS" "%h\n"
+	fi
+
+	cat "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS"
+}
+
+
+_'"$SCRIPT_NAME"'-branch-list()
+{
+	local git_branch_command=$1
+	local completion_source_patterns_file_name=$2
+
+	local completion_source_patterns_path=$(_'"$SCRIPT_NAME"'-config-path-for-file "$completion_source_patterns_file_name")
+	if [ $? != 0 ]
+	then
+		return
+	fi
+
+	local branches=()
+	local path
+	while read -r path
+	do
+		branches+=($(cd "$path"; $git_branch_command $git_branch_option | grep -v "HEAD detached at" | sed -e "s/* //" -e "s/  //"))
+	done < <(_'"$SCRIPT_NAME"'-read-branch-completion-sources "$completion_source_patterns_path")
+
+	local tokens=()
+	local branch
+	for branch in "${branches[@]}"
+	do
+		local components
+		IFS="/" read -ra components <<< "$branch"
+
+		tokens+=("${components[@]}")
+	done
+	branches+=("${tokens[@]}")
+
+	printf "%s\n" "${branches[@]}" | sort | uniq
+}
+
+
+_'"$SCRIPT_NAME"'-completion()
 {
 	if [ $COMP_CWORD == 1 ]
 	then
 		local ACTIONS=('"${SCRIPT_ACTIONS[@]}"')
 		local custom_actions_path
-		custom_actions_path=$(_workspace-config-path-for-file "$_WORKSPACE_CUSTOM_ACTIONS_FILE_NAME")
+		custom_actions_path=$(_'"$SCRIPT_NAME"'-config-path-for-file "$_'"$SCRIPT_NAME"'_CUSTOM_ACTIONS_FILE_NAME")
 		if [ $? == 0 ]
 		then
 			local line
@@ -174,7 +229,7 @@ _workspace-completion()
 			do
 				local action="${line%% *}"
 				ACTIONS+=("$action")
-			done < <(grep -e '"'"'^\s*[^#][a-zA-Z0-9]\+.*'"'"' "$custom_actions_path")
+			done < <(grep -e "^\s*[^#][a-zA-Z0-9]\+.*" "$custom_actions_path")
 		fi
 
 		COMPREPLY=($(compgen -W "${ACTIONS[*]}" "${COMP_WORDS[1]}"))
@@ -183,50 +238,74 @@ _workspace-completion()
 
 	local argument="${COMP_WORDS[$COMP_CWORD-1]}"
 
-	if ([ "$argument" == "--project" ] \
-		|| (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "p" ])) \
-		&& [ -r "$_WORKSPACE_COMPLETION_PROJECT_LIST_PATH" ]
+	if [ "$argument" == "--project" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "p"
 	then
-		local projects=$(cat "$_WORKSPACE_COMPLETION_PROJECT_LIST_PATH")
+		if [ ! -r "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH" ]
+		then
+			return
+		fi
+
+		local projects=$(cat "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH")
 		COMPREPLY=($(compgen -W "$projects" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
 
-	if ([ "$argument" == "--branch" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "B" ])) \
-		&& [ -r "$_WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH" ]
+	if [ "$argument" == "--branch" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "B"
 	then
-		local branches=$(cat "$_WORKSPACE_COMPLETION_CURRENT_BRANCH_LIST_PATH")
+		local branches
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git rev-parse --abbrev-ref HEAD" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		if [ $? != 0 ]
+		then
+			return
+		fi
+
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
-	elif ([ "$argument" == "--branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "b" ])) \
-		&& [ -r "$_WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH" ]
+	fi
+
+	if [ "$argument" == "--branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "b"
 	then
-		local branches=$(cat "$_WORKSPACE_COMPLETION_LOCAL_BRANCH_LIST_PATH")
+		local branches
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git branch" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		if [ $? != 0 ]
+		then
+			return
+		fi
+
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
-	elif ([ "$argument" == "--remote-branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "r" ])) \
-		&& [ -r "$_WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH" ]
+	fi
+
+	if [ "$argument" == "--remote-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "r"
 	then
-		local branches=$(cat "$_WORKSPACE_COMPLETION_REMOTE_BRANCH_LIST_PATH")
+		local branches
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git branch --remotes" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		if [ $? != 0 ]
+		then
+			return
+		fi
+
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
-	elif ([ "$argument" == "--all-branches" ] || (_workspace-completion-is-short-option "$argument" && [ "${argument: -1}" == "a" ])) \
-		&& [ -r "$_WORKSPACE_COMPLETION_BRANCH_LIST_PATH" ]
+	fi
+
+	if [ "$argument" == "--all-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "a"
 	then
-		local branches=$(cat "$_WORKSPACE_COMPLETION_BRANCH_LIST_PATH")
+		local branches
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git branch --all" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		if [ $? != 0 ]
+		then
+			return
+		fi
+
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
 }
 
-complete -F _workspace-completion '"$SCRIPT_NAME"
 
-IGNORE_PATHS_FILE_COMMENT=\
-'# glob patterns to ignore'
+complete -F _'"$SCRIPT_NAME"'-completion '"$SCRIPT_NAME"
 
-CUSTOM_ACTIONS_FILE_COMMENT=\
-'# status -- git status # show git status for projects
-'
 
 MATCHERS=()
 MATCHER_PREFIXES=()
@@ -854,36 +933,6 @@ cache-project-names()
 }
 
 
-cache-branches()
-{
-	local cache_path=$1
-	local branch_lister=$2
-	local project_paths=("${@:3}")
-
-	# collect branches
-	local branch_list=()
-	local path
-	for path in "${project_paths[@]}"
-	do
-		branch_list+=($("$branch_lister" "$path"))
-	done
-
-	# split branch names into tokens and store them with branch names
-	local tokens=()
-	local branch
-	for branch in "${branch_list[@]}"
-	do
-		local components
-		IFS='/' read -ra components <<< "$branch"
-
-		tokens+=("${components[@]}")
-	done
-	branch_list+=("${tokens[@]}")
-
-	printf '%s\n' "${branch_list[@]}" | sort | uniq > "$cache_path"
-}
-
-
 cache-workspace-info()
 {
 	mkdir -p "$CACHE_DIR_PATH"
@@ -904,10 +953,6 @@ cache-workspace-info()
 
 	local project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
 	cache-project-names "$COMPLETION_PROJECT_LIST_PATH" "${project_paths[@]}"
-	cache-branches "$COMPLETION_CURRENT_BRANCH_LIST_PATH" 'repository-current-branch' "${project_paths[@]}"
-	cache-branches "$COMPLETION_LOCAL_BRANCH_LIST_PATH" 'repository-local-branch-list' "${project_paths[@]}"
-	cache-branches "$COMPLETION_REMOTE_BRANCH_LIST_PATH" 'repository-remote-branch-list' "${project_paths[@]}"
-	cache-branches "$COMPLETION_BRANCH_LIST_PATH" 'repository-branch-list' "${project_paths[@]}"
 }
 
 
