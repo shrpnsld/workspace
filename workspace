@@ -909,7 +909,7 @@ cache-project-paths()
 	fi
 
 	# collect paths
-	find "$workspace_path" "${ignore_pattern_options[@]}" -type d -name '.git' -fprintf "$cache_path" '%h\n'
+	find "$workspace_path" "${ignore_pattern_options[@]}" -type d -name '.git' -fprintf "$cache_path" '%h\n' -prune
 }
 
 
