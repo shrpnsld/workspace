@@ -939,13 +939,6 @@ cache-workspace-info()
 
 	cache-project-paths "$CACHE_PROJECT_PATHS_PATH" "$WORKSPACE_PATH"
 
-	mkdir -p "$COMPLETION_DIR_PATH"
-	if [ $? != 0 ]
-	then
-		printf-error 'failed to create "%s" directory' "$COMPLETION_DIR_PATH"
-		return 1
-	fi
-
 	local project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
 	cache-project-names "$COMPLETION_PROJECT_LIST_PATH" "${project_paths[@]}"
 }
@@ -1192,44 +1185,29 @@ show-help()
 		local description="${CUSTOM_ACTIONS_DESCRIPTIONS[$index]}"
 		if [ -z "$description" ]
 		then
-			local options="${CUSTOM_ACTIONS_OPTIONS[$index]}"
-			if [ -n "$options" ]
+			if [ -n "${CUSTOM_ACTIONS_OPTIONS[$index]}" ]
 			then
-				local delimiter=' '
+				local options="${CUSTOM_ACTIONS_OPTIONS[$index]} "
 			else
-				local delimiter=''
+				local options=''
 			fi
 
-			description="\$ $SCRIPT_NAME $options$delimiter[<...>] -- ${CUSTOM_ACTIONS_COMMANDS[$index]} [<...>]"
+			description="\$ $SCRIPT_NAME $options[<...>] -- ${CUSTOM_ACTIONS_COMMANDS[$index]} [<...>]"
 		fi
 
 		custom_action_help="$custom_action_help  $action $description\n"
 	done
 
-	local help_message=\
-"Do various stuff with multiple projects.
-
-\e[1mUSAGE\e[0m
-  $SCRIPT_NAME status [-P <project-path>] [-u | -U] [-n] [-s | -r]
-      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-
-  $SCRIPT_NAME git [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
-      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-      -- <git-command>...
-
-  $SCRIPT_NAME foreach [-P <project-path>] [-i] [-u | -U] [-n] [-s | -r]
-      [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
-      -- <commands>...
-
-  $SCRIPT_NAME open [-P <project-path>] [-t] [-i] [-u | -U] [-n] [-s | -r]
-            [-p <project-name-pattern>] [(-b | -B) <branch-name-pattern>]
+	printf \
+"\e[1mUSAGE\e[0m
+  $SCRIPT_NAME <action> [<options>...]
 
 \e[1mACTIONS\e[0m
   status      show git status for projects.
   list        list projects.
   git         run git command for each project.
   foreach     run command for each project.
-  open        open projects in shell (default), Gnome-Terminal tabs or tmux panels.
+  open        open projects in shell (default), terminal tabs or tmux panels.
 $custom_action_help
 \e[1mOPTIONS\e[0m
   -W | --workspace-path <path>      Search path [default: current directory].
@@ -1251,6 +1229,8 @@ $custom_action_help
   -X | --tmux                       Open projects in tmux panels.
   -i | --interactive                Chose projects to do your stuff with.
   -g | --ignore-failed              Do not prompt to deal with error for failed commands in 'git' and 'foreach'.
+  --abort-open <0..127>             Abort 'open' action with exit status [default: 66].
+
   --print-message                   Print message with command.
   --print-interaction               Print interactions with command.
   --print-warrning                  Print warning with command.
@@ -1258,37 +1238,16 @@ $custom_action_help
   --colored-messages                Use colored output for messages.
   --colored-interactions            Use colored output for interactions.
   --colored-errors                  Use colored output for errors.
-  --abort-open <0..127>             Abort 'open' action with exit status [default: 66].
+
   -h | --help                       Show this message.
 
 \e[1mADDITIONAL COMMANDS\e[0m
-    install-completion-script  Install bash completion script for project and branch names.
-    cache-workspace-info       Cache project paths and store project and branch names for completion script.
+  install-completion-script  Install bash completion script for project and branch names.
+  cache-workspace-info       Cache project paths and store project and branch names for completion script.
 
-\e[1mNOTES\e[0m
-    Project name is the name of the folder that is parent to '.git' folder.
+\e[1mMore info at \e[4mhttps://github.com/shrpnsld/workspace\e[0m
 
-    If no '-s' or '-r' option is set, then <pattern> is searched as a part of a project/branch name.
-
-    Use quotes for '|', ';', '&&' and '||' inside <commands> for 'foreach'.
-
-    If any <command> in 'git' or 'foreach' failes during run, then script will prompt to open that project in shell to deal with issue manually.
-
-\e[1mEXAMPLES\e[0m
-    Get git status for all projects that contain 'feature' in any of their existing branch names (-b).
-    \e[1m$ $SCRIPT_NAME status -b feature\e[0m
-
-    Checkout to branch 'master' each project, that is not (-n) on 'master' branch (-B).
-    \e[1m$ $SCRIPT_NAME git -nB master -- checkout master\e[0m
-
-    Commit changes for each project, that has uncommited changes (-u) and contains 'feature/some' in it's current branch name (-B).
-    \e[1m$ $SCRIPT_NAME foreach -u -B feature/some -- git add . '&&' git commit\e[0m
-
-    Open in tmux panels (-x) projects, that contain 'feature' in their current branch name (-b).
-    \e[1m$ $SCRIPT_NAME open -x -b feature\e[0m
 "
-
-	printf "$help_message\n"
 }
 
 
@@ -1876,6 +1835,10 @@ if [ ! -r "$CACHE_PROJECT_PATHS_PATH" ]
 then
 	printf-message 'Caching workspace info...'
 	cache-workspace-info
+	if [ $? != 0 ]
+	then
+		exit 1
+	fi
 fi
 
 project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
@@ -1898,6 +1861,12 @@ do
 	fi
 
 	project_path="${project_paths[$index]}"
+	if [ ! -d "$project_path" ]
+	then
+		# mark cache as outdated
+		continue
+	fi
+
 	run-matchers "$project_path"
 	if [ $? != 0 ]
 	then
