@@ -1383,6 +1383,8 @@ check-parameter()
 }
 
 
+PARSE_OPTION_UNKNOWN_OPTION=255
+
 parse-option()
 {
 	local option=$1
@@ -1562,7 +1564,7 @@ parse-option()
 			;;
 
 		*)
-			return 255
+			return $PARSE_OPTION_UNKNOWN_OPTION
 			;;
 	esac
 }
@@ -1607,7 +1609,7 @@ parse-parameters()
 		local parameter
 		parameter=$(check-parameter "${parameters[$parameter_index]}")
 		local parameter_type=$?
-		if [ $parameter_type == $PARAM_TYPE_DELIMITER ]
+		if [ $parameter_type == $PARAM_TYPE_BAD_PARAMETER ]
 		then
 			printf-error 'bad parameter format "%s"' "$parameter"
 			return 1
@@ -1622,17 +1624,17 @@ parse-parameters()
 				do
 					local option="${parameter:$index:1}"
 					parse-option "$option" "$value"
-					if [ $? == 255 ]
-					then
-						printf-error 'unknown option "%s"' "$option"
-						return 1
-					fi
+					local retval=$?
+					case $retval in
+						$PARSE_OPTION_UNKNOWN_OPTION)
+							printf-error 'unknown option "%s"' "$option"
+							return 1
+							;;
 
-					if [ $? != 0 ]
-					then
-						(( parameter_index += 1 ))
-						break;
-					fi
+						*)
+							(( parameter_index += retval ))
+							;;
+					esac
 				done
 
 				continue
