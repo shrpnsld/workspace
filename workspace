@@ -80,6 +80,13 @@ printf-error-default()
 }
 
 
+current-shell()
+{
+	local parent_shell=$(ps -p $PPID -o comm=)
+	printf '%s\n' "${parent_shell#-}"
+}
+
+
 if [ -t 1 ] && [ $(tput colors) \> 0 ]
 then
 	OPTIONAL_INTERACTION_STYLE_BEGIN="$TEXT_STYLE_INTERACTION"
@@ -91,7 +98,7 @@ then
 fi
 
 
-CURRENT_SHELL=$(ps -o comm= -p "$PPID")
+CURRENT_SHELL=$(current-shell)
 
 WORKSPACE_PATH="$PWD"
 
