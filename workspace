@@ -80,6 +80,48 @@ printf-error-default()
 }
 
 
+TERMINAL_APPLICATION_APPLE=1
+TERMINAL_APPLICATION_ITERM=2
+TERMINAL_APPLICATION_GNOME=3
+TERMINAL_APPLICATION_TMUX=4
+TERMINAL_APPLICATION_UNKNOWN=255
+
+current-terminal-application()
+{
+	local pid=$$
+	while :
+	do
+		local parent_pid=$(ps -p $pid -o ppid=)
+		if [ $? != 0 ] || [ $parent_pid == 0 ]
+		then
+			return $TERMINAL_APPLICATION_UNKNOWN
+		fi
+
+		local parent_name=$(ps -p $parent_pid -o comm= )
+		echo "$parent_name"
+		case "$parent_name" in
+			*Terminal.app/Contents/MacOS/Terminal)
+				return $TERMINAL_APPLICATION_APPLE
+				;;
+
+			*iTerm.app/Contents/MacOS/iTerm2)
+				return $TERMINAL_APPLICATION_ITERM
+				;;
+
+			*gnome-terminal*) # TODO: need to check this
+				return $TERMINAL_APPLICATION_GNOME
+				;;
+
+			tmux)
+				return $TERMINAL_APPLICATION_TMUX
+				;;
+		esac
+
+		pid=$parent_pid
+	done
+}
+
+
 current-shell()
 {
 	local parent_shell=$(ps -p $PPID -o comm=)
@@ -99,6 +141,7 @@ fi
 
 
 CURRENT_SHELL=$(current-shell)
+CURRENT_TERMINAL_APPLICATION=$TERMINAL_APPLICATION_UNKNOWN
 
 WORKSPACE_PATH="$PWD"
 
@@ -1730,6 +1773,16 @@ validate-options()
 		printf-error "'"'%s'"'"' does not exist' "$OPTION_WORKSPACE_PATH"
 		return 1
 	fi
+
+	current-terminal-application
+	local retval=$?
+	if [ $retval == $TERMINAL_APPLICATION_UNKNOWN ]
+	then
+		printf-error 'failed to detect terminal application, or terminal is not supported. Specify it explicitly: -A, -G, -I, -X'
+		return 1
+	fi
+
+	CURRENT_TERMINAL_APPLICATION=$retval
 }
 
 
@@ -1796,28 +1849,23 @@ apply-parameters()
 
 	if $OPTION_TERMINAL_TABS
 	then
-		if [ "$TERM" == 'screen' ] && [ -n "$TMUX" ]
-		then
-			OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-tmux
-		else
-			case $TERM_PROGRAM in
-				Apple_Terminal)
-					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
-					;;
+		case $CURRENT_TERMINAL_APPLICATION in
+			$TERMINAL_APPLICATION_APPLE)
+				OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
+				;;
 
-				iTerm.app)
-					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-iterm
-					;;
+			$TERMINAL_APPLICATION_ITERM)
+				OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-iterm
+				;;
 
-				gnome-terminal)
-					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-gnome-terminal
-					;;
+			$TERMINAL_APPLICATION_GNOME)
+				OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-gnome-terminal
+				;;
 
-				*)
-					printf-error 'terminal "%s" is not supported' "$TERM_PROGRAM"
-					;;
-			esac
-		fi
+			$TERMINAL_APPLICATION_TMUX)
+				OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=continue-tmux
+				;;
+		esac
 	elif $OPTION_APPLE_TERMINAL
 	then
 		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
