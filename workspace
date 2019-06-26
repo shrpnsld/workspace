@@ -98,7 +98,6 @@ current-terminal-application()
 		fi
 
 		local parent_name=$(ps -p $parent_pid -o comm= )
-		echo "$parent_name"
 		case "$parent_name" in
 			*Terminal.app/Contents/MacOS/Terminal)
 				return $TERMINAL_APPLICATION_APPLE
@@ -658,6 +657,18 @@ matcher-branch-name()
 	done
 
 	return 1
+}
+
+
+matcher-all()
+{
+	local project_path=$1
+	local match_function=$2
+	local pattern=$3
+
+	matcher-project-name "$project_path" "$match_function" "$pattern" || \
+	matcher-current-branch-name "$project_path" "$match_function" "$pattern" || \
+	matcher-local-branch-name "$project_path" "$match_function" "$pattern"
 }
 
 
@@ -1282,10 +1293,10 @@ $custom_action_help
   -g | --ignore-failed              Do not prompt to deal with error for failed commands in 'git' and 'foreach'.
   --abort-open <0..127>             Abort 'open' action with exit status [default: 66].
 
-  --print-message                   Print message with command.
-  --print-interaction               Print interactions with command.
-  --print-warrning                  Print warning with command.
-  --print-error                     Print message with command.
+  --print-message <command>         Print message with command.
+  --print-interaction <command>     Print interactions with command.
+  --print-warrning <command>        Print warning with command.
+  --print-error <command>           Print message with command.
   --colored-messages                Use colored output for messages.
   --colored-interactions            Use colored output for interactions.
   --colored-errors                  Use colored output for errors.
@@ -1294,7 +1305,7 @@ $custom_action_help
 
 \e[1mADDITIONAL COMMANDS\e[0m
   install-completion-script  Install bash completion script for project and branch names.
-  cache-workspace-info       Cache project paths and store project and branch names for completion script.
+  cache-workspace-info       Update project paths cache.
 
 \e[1mMore info at \e[4mhttps://github.com/shrpnsld/workspace\e[0m
 
@@ -1406,6 +1417,7 @@ cache-workspace-info()
 PARAM_TYPE_SHORT_OPTION_LIST=1
 PARAM_TYPE_LONG_OPTION=2
 PARAM_TYPE_DELIMITER=3
+PARAM_TYPE_STRING=4
 PARAM_TYPE_BAD_PARAMETER=255
 
 check-parameter()
@@ -1429,7 +1441,11 @@ check-parameter()
 		return $PARAM_TYPE_SHORT_OPTION_LIST
 	fi
 
-	return $PARAM_TYPE_BAD_PARAMETER
+	printf "$string"
+	return $PARAM_TYPE_STRING
+
+#	printf "$string"
+#	return $PARAM_TYPE_BAD_PARAMETER
 }
 
 
@@ -1659,11 +1675,16 @@ parse-parameters()
 		local parameter
 		parameter=$(check-parameter "${parameters[$parameter_index]}")
 		local parameter_type=$?
-		if [ $parameter_type == $PARAM_TYPE_BAD_PARAMETER ]
+		if [ $parameter_type == $PARAM_TYPE_STRING ]
 		then
-			printf-error 'bad parameter format "%s"' "$parameter"
-			return 1
+			add-matcher 'matcher-all' "$parameter"
 		fi
+
+		#if [ $parameter_type == $PARAM_TYPE_BAD_PARAMETER ]
+		#then
+		#	printf-error 'bad parameter "%s"' "$parameter"
+		#	return 1
+		#fi
 
 		case $parameter_type in
 			$PARAM_TYPE_SHORT_OPTION_LIST)
