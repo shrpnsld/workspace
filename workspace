@@ -245,7 +245,8 @@ _'"$SCRIPT_NAME"'-branch-list()
 	local git_branch_command=$1
 	local completion_source_patterns_file_name=$2
 
-	local completion_source_patterns_path=$(_'"$SCRIPT_NAME"'-config-path-for-file "$completion_source_patterns_file_name")
+	local completion_source_patterns_path
+	completion_source_patterns_path=$(_'"$SCRIPT_NAME"'-config-path-for-file "$completion_source_patterns_file_name")
 	if [ $? != 0 ]
 	then
 		return
