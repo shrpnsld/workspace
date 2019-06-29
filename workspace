@@ -228,7 +228,15 @@ _'"$SCRIPT_NAME"'-cache-branch-names()
 		path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
 	done < <(grep "^[^#][^ ]*$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
 
-	find . "(" "${path_pattern_options[@]}" ")" -type d -name ".git" -prune -and -fprintf "$cache_path" "%h\n"
+	local git_dirs=($(find . "(" "${path_pattern_options[@]}" ")" -type d -name ".git"))
+	local project_paths=()
+	local git_dir
+	for git_dir in "${git_dirs[@]}"
+	do
+		project_paths+=("$(dirname "$git_dir")")
+	done
+
+	printf "%s\n" "${project_paths[@]}" > "$cache_path"
 }
 
 
@@ -970,7 +978,15 @@ cache-project-paths()
 	fi
 
 	# collect paths
-	find "$workspace_path" "${ignore_pattern_options[@]}" -type d -name '.git' -fprintf "$cache_path" '%h\n' -prune
+	local git_dirs=($(find "$workspace_path" "${ignore_pattern_options[@]}" -type d -name '.git'))
+	local project_paths=()
+	local git_dir
+	for git_dir in "${git_dirs[@]}"
+	do
+		project_paths+=("$(dirname "$git_dir")")
+	done
+
+	printf '%s\n' "${project_paths[@]}" > "$cache_path"
 }
 
 
