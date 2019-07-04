@@ -1318,7 +1318,7 @@ $custom_action_help
   -X | --tmux                       Open projects in tmux panels.
   -i | --interactive                Chose projects to do your stuff with.
   -g | --ignore-failed              Do not prompt to deal with error for failed commands in 'git' and 'foreach'.
-  --abort-open <0..127>             Abort 'open' action with exit status [default: 66].
+  --abort-open-with <0..127>        Abort 'open' action with exit status [default: 66].
 
   --print-message <command>         Print message with command.
   --print-interaction <command>     Print interactions with command.
@@ -1651,7 +1651,7 @@ parse-option()
 			return 1
 			;;
 
-		abort-open)
+		abort-open-with)
 			ABORT_OPEN_ACTION_EXIT_STATUS=$value
 			return 1
 			;;
