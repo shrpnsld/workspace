@@ -1334,7 +1334,7 @@ $custom_action_help
   install-completion-script  Install bash completion script for project and branch names.
   cache-workspace-info       Update project paths cache.
 
-\e[1mMore info at \e[4mhttps://github.com/shrpnsld/workspace\e[0m
+\e[1mMore information at \e[mhttps://github.com/shrpnsld/workspace\e[0m
 
 "
 }
@@ -1373,7 +1373,7 @@ pick-project-and-perform-action()
 		project_path="${project_paths[$index]}"
 		if [ ! -d "$project_path" ]
 		then
-			# mark cache as outdated
+			# TODO: mark cache as outdated
 			continue
 		fi
 
@@ -1395,7 +1395,6 @@ pick-project-and-perform-action()
 	fi
 
 	perform-action "${matched_projects[@]}"
-	printf-message 'Done.'
 }
 
 
@@ -1433,8 +1432,6 @@ cache-workspace-info()
 
 	local project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
 	cache-project-names "$COMPLETION_PROJECT_LIST_PATH" "${project_paths[@]}"
-
-	printf-message 'Done.'
 }
 
 
@@ -1470,9 +1467,6 @@ check-parameter()
 
 	printf "$string"
 	return $PARAM_TYPE_STRING
-
-#	printf "$string"
-#	return $PARAM_TYPE_BAD_PARAMETER
 }
 
 
@@ -1673,7 +1667,7 @@ parse-action()
 			;;
 
 		cache-workspace-info)
-			DO_JOB_FUNCTION=cache-workspace-info
+			DO_JOB_FUNCTION='cache-workspace-info'
 			;;
 
 		install-completion-script)
@@ -1706,12 +1700,6 @@ parse-parameters()
 		then
 			add-matcher 'matcher-all' "$parameter"
 		fi
-
-		#if [ $parameter_type == $PARAM_TYPE_BAD_PARAMETER ]
-		#then
-		#	printf-error 'bad parameter "%s"' "$parameter"
-		#	return 1
-		#fi
 
 		case $parameter_type in
 			$PARAM_TYPE_SHORT_OPTION_LIST)
