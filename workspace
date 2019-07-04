@@ -226,7 +226,7 @@ _'"$SCRIPT_NAME"'-cache-branch-names()
 		fi
 
 		path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
-	done < <(grep "^[^#][^ ]*$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
+	done < <(grep "^[^#][^ ]+$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
 
 	local git_dirs=($(find . "(" "${path_pattern_options[@]}" ")" -type d -name ".git"))
 	local project_paths=()
