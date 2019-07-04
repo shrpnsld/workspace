@@ -478,6 +478,15 @@ repository-status-pretty()
 #
 # git raw
 
+repository-head()
+{
+	local path=$1
+
+	local output=$(cd "$path"; git branch | grep '^\* ')
+	printf '%s\n' "${output##\* }"
+}
+
+
 repository-current-branch()
 {
 	local path=$1
@@ -1052,7 +1061,8 @@ list-repositories()
 	for path in "${repository_paths[@]}"
 	do
 		local project_name=$(basename "$path")
-		printf '\e[1m%s\e[0m -- %s\n' "$project_name" "$path"
+		local head=$(repository-head "$path")
+		printf '\e[1m%s\e[0m [%s] -- %s\n' "$project_name" "$head" "$path"
 	done
 	printf '\n'
 }
