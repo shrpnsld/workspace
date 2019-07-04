@@ -226,7 +226,7 @@ _'"$SCRIPT_NAME"'-cache-branch-names()
 		fi
 
 		path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
-	done < <(grep "^[^#][^ ]+$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
+	done < <(grep -E "^[^# 	]+$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
 
 	local git_dirs=($(find . "(" "${path_pattern_options[@]}" ")" -type d -name ".git"))
 	local project_paths=()
@@ -294,7 +294,7 @@ _'"$SCRIPT_NAME"'-completion()
 			do
 				local action="${line%% *}"
 				ACTIONS+=("$action")
-			done < <(grep -e "^\s*[^#][a-zA-Z0-9]\+.*" "$custom_actions_path")
+			done < <(grep -E "^\s*[^# 	]\+.*" "$custom_actions_path")
 		fi
 
 		COMPREPLY=($(compgen -W "${ACTIONS[*]}" "${COMP_WORDS[1]}"))
@@ -984,7 +984,7 @@ cache-project-paths()
 
 			# removing quotes, so they are not part of the pattern
 			ignore_pattern_options+=('!' '-path' "${pattern:1:${#pattern}-2}")
-		done < <(grep '^[^#][^ ]*$' "$config_ignore_path" | sed -e 's/^/"/' -e 's/$/"/') # quoting patterns to prevent asterisk expansion
+		done < <(grep -E '^[^# 	]+$' "$config_ignore_path" | sed -e 's/^/"/' -e 's/$/"/') # quoting patterns to prevent asterisk expansion
 	fi
 
 	# collect paths
@@ -1975,7 +1975,7 @@ then
 		CUSTOM_ACTIONS_OPTIONS+=("$options")
 		CUSTOM_ACTIONS_COMMANDS+=("$cmd")
 		CUSTOM_ACTIONS_DESCRIPTIONS+=("$description")
-	done < <(grep -e '^\s*[^#]' "$custom_actions_path")
+	done < <(grep -E '^\s*[^# 	]+' "$custom_actions_path")
 fi
 
 
@@ -1991,7 +1991,7 @@ then
 		option="${line%% *}"
 		value="${line#* }"
 		implicit_arguments+=("$option" "$value")
-	done < <(grep -e '^\s*[^#]' "$implicit_arguments_path")
+	done < <(grep -E '^\s*[^# 	]' "$implicit_arguments_path")
 fi
 
 parse-parameters "${implicit_arguments[@]}"
