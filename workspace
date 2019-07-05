@@ -22,13 +22,13 @@ OPTIONAL_ERROR_STYLE_END=''
 
 printf-message()
 {
-	$PRINT_MESSAGE_BACKEND "$@"
+	${PRINT_MESSAGE_BACKEND[@]} "$@"
 }
 
 
 printf-interaction()
 {
-	$PRINT_INTERACTION_BACKEND "$@"
+	${PRINT_INTERACTION_BACKEND[@]} "$@"
 }
 
 
@@ -36,7 +36,7 @@ printf-warning()
 {
 	local message=$(printf "$OPTIONAL_WARNING_STYLE_BEGIN$SCRIPT_NAME warning:$OPTIONAL_WARNING_STYLE_END "; printf "$@")
 
-	$PRINT_WARNING_BACKEND "$message"
+	${PRINT_WARNING_BACKEND[@]} "$message"
 }
 
 
@@ -44,7 +44,7 @@ printf-error()
 {
 	local message=$(printf "$OPTIONAL_ERROR_STYLE_BEGIN$SCRIPT_NAME error:$OPTIONAL_ERROR_STYLE_END "; printf "$@")
 
-	$PRINT_ERROR_BACKEND "$message"
+	"${PRINT_ERROR_BACKEND[@]}" "$message"
 }
 
 
@@ -388,10 +388,10 @@ PROMPT_TO_USE_REPOSITORY_FUNCTION=nothing
 DEAL_WITH_FAILED_COMMAND_FUNCTION=deal-with-failed-command-manually
 OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-shell
 FOREACH_ARGUMENTS=()
-PRINT_MESSAGE_BACKEND=printf-message-default
-PRINT_INTERACTION_BACKEND=printf-interaction-default
-PRINT_WARNING_BACKEND=printf-warning-default
-PRINT_ERROR_BACKEND=printf-error-default
+PRINT_MESSAGE_BACKEND=(printf-message-default)
+PRINT_INTERACTION_BACKEND=(printf-interaction-default)
+PRINT_WARNING_BACKEND=(printf-warning-default)
+PRINT_ERROR_BACKEND=(printf-error-default)
 DO_JOB_FUNCTION=pick-project-and-perform-action
 PERFORM_ACTION_FUNCTION=''
 ABORT_OPEN_ACTION_EXIT_STATUS=66
@@ -758,6 +758,14 @@ command-exists()
 	local name=$1
 
 	command -v "$name" > /dev/null 2>&1
+}
+
+
+command-runs-successfully()
+{
+	local cmd=$1
+
+	bash -c "$cmd test" &> /dev/null
 }
 
 
@@ -1616,38 +1624,45 @@ parse-option()
 			;;
 
 		print-message)
-			local backend=$(string-trim-quotes "$value")
-			if bash -c "$backend test" &> /dev/null
+			local trimmed_value=$(string-trim-quotes "$value")
+			local cmd=()
+			eval 'local word; for word in '"$trimmed_value"'; do cmd+=("$word"); done'
+			if command-runs-successfully "${cmd[@]}"
 			then
-				PRINT_MESSAGE_BACKEND="$backend"
+				PRINT_MESSAGE_BACKEND=("${cmd[@]}")
 			fi
 			return 1
 			;;
 
 		print-interaction)
-			local backend=$(string-trim-quotes "$value")
-			if bash -c "$backend test" &> /dev/null
+			local trimmed_value=$(string-trim-quotes "$value")
+			local cmd=()
+			eval 'local word; for word in '"$trimmed_value"'; do cmd+=("$word"); done'
+			if command-runs-successfully "${cmd[@]}"
 			then
-				PRINT_INTERACTION_BACKEND="$backend"
+				PRINT_INTERACTION_BACKEND=("${cmd[@]}")
 			fi
 			return 1
 			;;
 
-
 		print-warning)
-			local backend=$(string-trim-quotes "$value")
-			if bash -c "$backend test" &> /dev/null
+			local trimmed_value=$(string-trim-quotes "$value")
+			local cmd=()
+			eval 'local word; for word in '"$trimmed_value"'; do cmd+=("$word"); done'
+			if command-runs-successfully "${cmd[@]}"
 			then
-				PRINT_WARNING_BACKEND="$backend"
+				PRINT_WARNING_BACKEND=("${cmd[@]}")
 			fi
 			return 1
 			;;
 
 		print-error)
-			local backend=$(string-trim-quotes "$value")
-			if bash -c "$backend test" &> /dev/null
+			local trimmed_value=$(string-trim-quotes "$value")
+			local cmd=()
+			eval 'local word; for word in '"$trimmed_value"'; do cmd+=("$word"); done'
+			if command-runs-successfully "${cmd[@]}"
 			then
-				PRINT_ERROR_BACKEND="$backend"
+				PRINT_ERROR_BACKEND=("${cmd[@]}")
 			fi
 			return 1
 			;;
