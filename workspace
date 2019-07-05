@@ -1817,15 +1817,18 @@ validate-options()
 		return 1
 	fi
 
-	current-terminal-application
-	local retval=$?
-	if [ $retval == $TERMINAL_APPLICATION_UNKNOWN ]
+	if $OPTION_TERMINAL_TABS
 	then
-		printf-error 'failed to detect terminal application, or terminal is not supported. Specify it explicitly: -A, -G, -I, -X'
-		return 1
-	fi
+		current-terminal-application
+		local retval=$?
+		if [ $retval == $TERMINAL_APPLICATION_UNKNOWN ]
+		then
+			printf-error 'failed to detect terminal application, or terminal is not supported. Specify it explicitly with -A, -G, -I, -X'
+			return 1
+		fi
 
-	CURRENT_TERMINAL_APPLICATION=$retval
+		CURRENT_TERMINAL_APPLICATION=$retval
+	fi
 }
 
 
