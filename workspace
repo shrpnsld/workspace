@@ -111,7 +111,7 @@ current-terminal-application()
 				return $TERMINAL_APPLICATION_GNOME
 				;;
 
-			tmux)
+			tmux|'tmux: server')
 				return $TERMINAL_APPLICATION_TMUX
 				;;
 		esac
