@@ -107,7 +107,7 @@ current-terminal-application()
 				return $TERMINAL_APPLICATION_ITERM
 				;;
 
-			*gnome-terminal*) # TODO: need to check this
+			*gnome-terminal*)
 				return $TERMINAL_APPLICATION_GNOME
 				;;
 
@@ -167,7 +167,7 @@ COMPLETION_DIR_PATH="$LOCAL_WORKSPACE_RC_PATH/completion"
 COMPLETION_SOURCE_PROJECTS_PATH="$COMPLETION_DIR_PATH/source-projects"
 COMPLETION_PROJECT_LIST_PATH="$COMPLETION_DIR_PATH/project-list"
 
-SCRIPT_ACTIONS=('status' 'list' 'git' 'foreach' 'open' 'cache-workspace-info' 'install-completion-script')
+SCRIPT_ACTIONS=(status list git foreach open cache-workspace-info install-completion-script)
 
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
@@ -206,7 +206,7 @@ _'"$SCRIPT_NAME"'-is-short-option()
 }
 
 
-_'"$SCRIPT_NAME"'-cache-branch-names()
+_'"$SCRIPT_NAME"'-cache-completion-sources()
 {
 	local completion_source_patterns_path=$1
 	local cache_path=$2
@@ -259,7 +259,7 @@ _'"$SCRIPT_NAME"'-branch-list()
 		return
 	fi
 
-	_'"$SCRIPT_NAME"'-cache-branch-names "$completion_source_patterns_path" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS"
+	_'"$SCRIPT_NAME"'-cache-completion-sources "$completion_source_patterns_path" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS"
 	if [ ! -r "$completion_source_patterns_path" ]
 	then
 		return
@@ -561,18 +561,18 @@ add-matcher()
 
 	if $OPTION_NEGATE_NEXT_PATTERN
 	then
-		MATCHER_PREFIXES+=('negate')
+		MATCHER_PREFIXES+=(negate)
 		OPTION_NEGATE_NEXT_PATTERN=false
 	else
-		MATCHER_PREFIXES+=('straight')
+		MATCHER_PREFIXES+=(straight)
 	fi
 
 	if $OPTION_STRICT_NEXT_PATTERN
 	then
-		MATCH_FUNCTIONS+=('strict-match')
+		MATCH_FUNCTIONS+=(strict-match)
 		OPTION_STRICT_NEXT_PATTERN=false
 	else
-		MATCH_FUNCTIONS+=('inclusion-match')
+		MATCH_FUNCTIONS+=(inclusion-match)
 	fi
 
 	MATCHER_PATTERNS+=("$pattern")
@@ -1281,7 +1281,7 @@ foreach-project()
 
 foreach-project-git()
 {
-	FOREACH_ARGUMENTS=('git' ${FOREACH_ARGUMENTS[@]})
+	FOREACH_ARGUMENTS=(git ${FOREACH_ARGUMENTS[@]})
 	foreach-project "$@"
 }
 
@@ -1349,13 +1349,18 @@ $custom_action_help
   --print-interaction <command>     Print interactions with command.
   --print-warrning <command>        Print warning with command.
   --print-error <command>           Print message with command.
-  --colored-messages                Use colored output for messages.
+  --colored-output                  Use colored output.
   --colored-interactions            Use colored output for interactions.
+  --colored-warnings                Use colored output for warnings.
   --colored-errors                  Use colored output for errors.
+  --no-colored-output               Do not use colored output for anything.
+  --no-colored-interactions         Do not use colored output for interactions.
+  --no-colored-warnings             Do not use colored output for warnings.
+  --no-colored-errors               Do not use colored output for errors.
 
   -h | --help                       Show this message.
 
-\e[1mADDITIONAL COMMANDS\e[0m
+\e[1mADDITIONAL ACTIONS\e[0m
   install-completion-script  Install bash completion script for project and branch names.
   cache-workspace-info       Update project paths cache.
 
@@ -1585,7 +1590,7 @@ parse-option()
 			OPTION_IGNORE_FAILED=true
 			;;
 
-		color)
+		colored-output)
 			OPTIONAL_INTERACTION_STYLE_BEGIN="$TEXT_STYLE_INTERACTION"
 			OPTIONAL_INTERACTION_STYLE_END="$TEXT_STYLE_NORMAL"
 			OPTIONAL_WARNING_STYLE_BEGIN="$TEXT_STYLE_WARNING"
@@ -1594,22 +1599,22 @@ parse-option()
 			OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
 			;;
 
-		interaction-color)
+		colored-interactions)
 			OPTIONAL_INTERACTION_STYLE_BEGIN="$TEXT_STYLE_INTERACTION"
 			OPTIONAL_INTERACTION_STYLE_END="$TEXT_STYLE_NORMAL"
 			;;
 
-		warning-color)
+		colored-warnings)
 			OPTIONAL_WARNING_STYLE_BEGIN="$TEXT_STYLE_WARNING"
 			OPTIONAL_WARNING_STYLE_END="$TEXT_STYLE_NORMAL"
 			;;
 
-		error-color)
+		colored-errors)
 			OPTIONAL_ERROR_STYLE_BEGIN="$TEXT_STYLE_ERROR"
 			OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
 			;;
 
-		no-color)
+		no-colored-output)
 			OPTIONAL_INTERACTION_STYLE_BEGIN=''
 			OPTIONAL_INTERACTION_STYLE_END=''
 			OPTIONAL_WARNING_STYLE_BEGIN=''
@@ -1618,17 +1623,17 @@ parse-option()
 			OPTIONAL_ERROR_STYLE_END=''
 			;;
 
-		no-interaction-color)
+		no-colored-interactions)
 			OPTIONAL_INTERACTION_STYLE_BEGIN=''
 			OPTIONAL_INTERACTION_STYLE_END=''
 			;;
 
-		no-warning-color)
+		no-colored-warnings)
 			OPTIONAL_WARNING_STYLE_BEGIN=''
 			OPTIONAL_WARNING_STYLE_END=''
 			;;
 
-		no-error-color)
+		no-colored-errors)
 			OPTIONAL_ERROR_STYLE_BEGIN=''
 			OPTIONAL_ERROR_STYLE_END=''
 			;;
@@ -1894,17 +1899,17 @@ apply-parameters()
 
 	if $OPTION_UNCOMMITED
 	then
-		MATCHERS+=('matcher-uncommited-changes')
-		MATCHER_PREFIXES+=('straight')
-		MATCH_FUNCTIONS+=('inclusion-match')
+		MATCHERS+=(matcher-uncommited-changes)
+		MATCHER_PREFIXES+=(straight)
+		MATCH_FUNCTIONS+=(inclusion-match)
 		MATCHER_PATTERNS+=('')
 	fi
 
 	if $OPTION_IGNORE_DETACHED
 	then
-		MATCHERS+=('matcher-head-attached')
-		MATCHER_PREFIXES+=('straight')
-		MATCH_FUNCTIONS+=('inclusion-match')
+		MATCHERS+=(matcher-head-attached)
+		MATCHER_PREFIXES+=(straight)
+		MATCH_FUNCTIONS+=(inclusion-match)
 		MATCHER_PATTERNS+=('')
 	fi
 
@@ -2015,7 +2020,7 @@ fi
 
 
 #
-# Script parameters
+# Implicit arguments
 
 implicit_arguments=()
 implicit_arguments_path=$(config-path-for-file "$IMPLICIT_ARGUMENTS_FILE_NAME")
@@ -2030,6 +2035,7 @@ then
 fi
 
 parse-parameters "${implicit_arguments[@]}"
+
 
 #
 # Sanity checks
