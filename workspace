@@ -211,28 +211,26 @@ _'"$SCRIPT_NAME"'-cache-completion-sources()
 	local completion_source_patterns_path=$1
 	local cache_path=$2
 
-	if [ ! "$cache_path" -ot "$completion_source_patterns_path" ]
+	if [ -r "$completion_source_patterns_path" ] && [ "$cache_path" -ot "$completion_source_patterns_path" ]
 	then
-		return
-	fi
+		local path_pattern_options=()
+		local pattern
+		while read -r pattern
+		do
+			if [ ${#path_pattern_options[@]} == 0 ]
+			then
+				path_pattern_options+=("(")
+			else
+				path_pattern_options+=("-or")
+			fi
 
-	local path_pattern_options=()
-	local pattern
-	while read -r pattern
-	do
-		if [ ${#path_pattern_options[@]} == 0 ]
+			path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
+		done < <(grep -E "^[^# 	]+$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
+
+		if [ "${#path_pattern_options[@]}" \> 0 ]
 		then
-			path_pattern_options+=("(")
-		else
-			path_pattern_options+=("-or")
+			path_pattern_options+=(")")
 		fi
-
-		path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
-	done < <(grep -E "^[^# 	]+$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
-
-	if [ "${#path_pattern_options[@]}" \> 0 ]
-	then
-		path_pattern_options+=(")")
 	fi
 
 	local git_dirs=($(find . "${path_pattern_options[@]}" -type d -name ".git"))
@@ -254,16 +252,8 @@ _'"$SCRIPT_NAME"'-branch-list()
 
 	local completion_source_patterns_path
 	completion_source_patterns_path=$(_'"$SCRIPT_NAME"'-config-path-for-file "$completion_source_patterns_file_name")
-	if [ $? != 0 ]
-	then
-		return
-	fi
 
 	_'"$SCRIPT_NAME"'-cache-completion-sources "$completion_source_patterns_path" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS"
-	if [ ! -r "$completion_source_patterns_path" ]
-	then
-		return
-	fi
 
 	local branches=()
 	local path
