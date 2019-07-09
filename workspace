@@ -373,6 +373,16 @@ _'"$SCRIPT_NAME"'-completion()
 		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
+
+	local completion=""
+	if [ -r "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH" ]
+	then
+		completion+=$(cat "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH")
+	fi
+
+	completion+=$(_'"$SCRIPT_NAME"'-branch-list "git branch" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+
+	COMPREPLY=($(compgen -W "$completion" "${COMP_WORDS[$COMP_CWORD]}"))
 }
 
 
