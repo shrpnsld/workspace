@@ -7,15 +7,29 @@ SCRIPT_NAME=$(basename $0)
 
 
 TEXT_STYLE_NORMAL='\e[0m'
+TEXT_STYLE_PROJECT_HEADER='\e[1;4m'
+TEXT_STYLE_PROJECT_NAME='\e[1m'
+TEXT_STYLE_BRANCH_NAME='\e[32m'
 TEXT_STYLE_INTERACTION='\e[1;34m'
 TEXT_STYLE_WARNING='\e[1;35m'
 TEXT_STYLE_ERROR='\e[0;31m'
+TEXT_STYLE_GIT_COLORED='-c color.ui=always'
+TEXT_STYLE_GIT_PLAIN='-c color.ui=false'
 
+OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN=''
+OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END=''
+OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN=''
+OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END=''
+OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN=''
+OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END=''
+OPTIONAL_OUTPUT_GIT_STYLE="$TEXT_STYLE_GIT_PLAIN"
 
 OPTIONAL_INTERACTION_STYLE_BEGIN=''
 OPTIONAL_INTERACTION_STYLE_END=''
+
 OPTIONAL_WARNING_STYLE_BEGIN=''
 OPTIONAL_WARNING_STYLE_END=''
+
 OPTIONAL_ERROR_STYLE_BEGIN=''
 OPTIONAL_ERROR_STYLE_END=''
 
@@ -130,10 +144,20 @@ current-shell()
 
 if [ -t 1 ] && [ $(tput colors) \> 0 ]
 then
+	OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN="$TEXT_STYLE_PROJECT_HEADER"
+	OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END="$TEXT_STYLE_NORMAL"
+	OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN="$TEXT_STYLE_PROJECT_NAME"
+	OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END="$TEXT_STYLE_NORMAL"
+	OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN="$TEXT_STYLE_BRANCH_NAME"
+	OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END="$TEXT_STYLE_NORMAL"
+	OPTIONAL_OUTPUT_GIT_STYLE="$TEXT_STYLE_GIT_COLORED"
+
 	OPTIONAL_INTERACTION_STYLE_BEGIN="$TEXT_STYLE_INTERACTION"
 	OPTIONAL_INTERACTION_STYLE_END="$TEXT_STYLE_NORMAL"
+
 	OPTIONAL_WARNING_STYLE_BEGIN="$TEXT_STYLE_WARNING"
 	OPTIONAL_WARNING_STYLE_END="$TEXT_STYLE_NORMAL"
+
 	OPTIONAL_ERROR_STYLE_BEGIN="$TEXT_STYLE_ERROR"
 	OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
 fi
@@ -457,7 +481,7 @@ repository-current-branch-pretty()
 {
 	local path=$1
 
-	local output=$(cd "$path"; git -c color.ui=always branch | grep '^\* ')
+	local output=$(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE branch | grep '^\* ')
 	printf '%s\n' "${output}"
 }
 
@@ -466,7 +490,7 @@ repository-branch-list-pretty()
 {
 	local path=$1
 
-	local output=$(cd "$path"; git -c color.ui=always branch --all)
+	local output=$(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE branch --all)
 	printf '%s\n' "$output"
 }
 
@@ -476,9 +500,9 @@ repository-status-pretty()
 	local path=$1
 
 	local project_name=$(basename "$path")
-	local status=$(cd "$path"; git -c color.ui=always status)
+	local status=$(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE status)
 
-	printf '\e[1;4m%s\e[0m\n%s\n' "$project_name" "$status"
+	printf "$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END"'\n%s\n' "$project_name" "$status"
 }
 
 
@@ -1077,7 +1101,7 @@ list-repositories()
 	do
 		local project_name=$(basename "$path")
 		local head=$(repository-head "$path")
-		printf '\e[1m%s\e[0m [\e[32m%s\e[0m] -- %s\n' "$project_name" "$head" ".${path#$PWD}"
+		printf "$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END"' ['"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END"'] -- %s\n' "$project_name" "$head" ".${path#$PWD}"
 	done
 	printf '\n'
 }
@@ -1096,7 +1120,7 @@ start-shell()
 		fi
 
 		local project_name=$(basename "$path")
-		printf '\e[1;4m%s\e[0m\n' "$project_name"
+		printf "$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END"'\n' "$project_name"
 		"$CURRENT_SHELL" -c "cd '$path'; $CURRENT_SHELL"
 		if [ $? == $ABORT_OPEN_ACTION_EXIT_STATUS ]
 		then
@@ -1259,7 +1283,7 @@ foreach-project()
 			fi
 		else
 			local project_name=$(basename "$path")
-			printf '\e[1;4m%s\e[0m\n' "$project_name"
+			printf "$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END"'\n' "$project_name"
 		fi
 
 		bash -c "cd '$path'; ${FOREACH_ARGUMENTS[*]}"
@@ -1343,10 +1367,12 @@ $custom_action_help
   --colored-interactions            Use colored output for interactions.
   --colored-warnings                Use colored output for warnings.
   --colored-errors                  Use colored output for errors.
-  --no-colored-output               Do not use colored output for anything.
+  --colored-everything              Use colored output for everything.
+  --no-colored-output               Do not use colored output.
   --no-colored-interactions         Do not use colored output for interactions.
   --no-colored-warnings             Do not use colored output for warnings.
   --no-colored-errors               Do not use colored output for errors.
+  --no-colored-anything             Do not use colored output for anything.
 
   -h | --help                       Show this message.
 
@@ -1581,12 +1607,13 @@ parse-option()
 			;;
 
 		colored-output)
-			OPTIONAL_INTERACTION_STYLE_BEGIN="$TEXT_STYLE_INTERACTION"
-			OPTIONAL_INTERACTION_STYLE_END="$TEXT_STYLE_NORMAL"
-			OPTIONAL_WARNING_STYLE_BEGIN="$TEXT_STYLE_WARNING"
-			OPTIONAL_WARNING_STYLE_END="$TEXT_STYLE_NORMAL"
-			OPTIONAL_ERROR_STYLE_BEGIN="$TEXT_STYLE_ERROR"
-			OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
+			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN="$TEXT_STYLE_PROJECT_HEADER"
+			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END="$TEXT_STYLE_NORMAL"
+			OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN="$TEXT_STYLE_PROJECT_NAME"
+			OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END="$TEXT_STYLE_NORMAL"
+			OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN="$TEXT_STYLE_BRANCH_NAME"
+			OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END="$TEXT_STYLE_NORMAL"
+			OPTIONAL_OUTPUT_GIT_STYLE="$TEXT_STYLE_GIT_COLORED"
 			;;
 
 		colored-interactions)
@@ -1604,13 +1631,33 @@ parse-option()
 			OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
 			;;
 
+		colored-everything)
+			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN="$TEXT_STYLE_PROJECT_HEADER"
+			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END="$TEXT_STYLE_NORMAL"
+			OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN="$TEXT_STYLE_PROJECT_NAME"
+			OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END="$TEXT_STYLE_NORMAL"
+			OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN="$TEXT_STYLE_BRANCH_NAME"
+			OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END="$TEXT_STYLE_NORMAL"
+			OPTIONAL_OUTPUT_GIT_STYLE="$TEXT_STYLE_GIT_COLORED"
+
+			OPTIONAL_INTERACTION_STYLE_BEGIN="$TEXT_STYLE_INTERACTION"
+			OPTIONAL_INTERACTION_STYLE_END="$TEXT_STYLE_NORMAL"
+
+			OPTIONAL_WARNING_STYLE_BEGIN="$TEXT_STYLE_WARNING"
+			OPTIONAL_WARNING_STYLE_END="$TEXT_STYLE_NORMAL"
+
+			OPTIONAL_ERROR_STYLE_BEGIN="$TEXT_STYLE_ERROR"
+			OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
+			;;
+
 		no-colored-output)
-			OPTIONAL_INTERACTION_STYLE_BEGIN=''
-			OPTIONAL_INTERACTION_STYLE_END=''
-			OPTIONAL_WARNING_STYLE_BEGIN=''
-			OPTIONAL_WARNING_STYLE_END=''
-			OPTIONAL_ERROR_STYLE_BEGIN=''
-			OPTIONAL_ERROR_STYLE_END=''
+			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN=''
+			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END=''
+			OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN=''
+			OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END=''
+			OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN=''
+			OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END=''
+			OPTIONAL_OUTPUT_GIT_STYLE="$TEXT_STYLE_GIT_PLAIN"
 			;;
 
 		no-colored-interactions)
@@ -1624,6 +1671,25 @@ parse-option()
 			;;
 
 		no-colored-errors)
+			OPTIONAL_ERROR_STYLE_BEGIN=''
+			OPTIONAL_ERROR_STYLE_END=''
+			;;
+
+		no-colored-anything)
+			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN=''
+			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END=''
+			OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN=''
+			OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END=''
+			OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN=''
+			OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END=''
+			OPTIONAL_OUTPUT_GIT_STYLE="$TEXT_STYLE_GIT_PLAIN"
+
+			OPTIONAL_INTERACTION_STYLE_BEGIN=''
+			OPTIONAL_INTERACTION_STYLE_END=''
+
+			OPTIONAL_WARNING_STYLE_BEGIN=''
+			OPTIONAL_WARNING_STYLE_END=''
+
 			OPTIONAL_ERROR_STYLE_BEGIN=''
 			OPTIONAL_ERROR_STYLE_END=''
 			;;
