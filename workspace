@@ -235,6 +235,11 @@ _'"$SCRIPT_NAME"'-cache-completion-sources()
 	local completion_source_patterns_path=$1
 	local cache_path=$2
 
+	if [ -r "$completion_source_patterns_path" ] && [ "$cache_path" -nt "$completion_source_patterns_path" ]
+	then
+		return
+	fi
+
 	if [ -r "$completion_source_patterns_path" ] && [ "$cache_path" -ot "$completion_source_patterns_path" ]
 	then
 		local path_pattern_options=()
