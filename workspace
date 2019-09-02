@@ -49,7 +49,6 @@ printf-interaction()
 printf-warning()
 {
 	local message=$(printf "$OPTIONAL_WARNING_STYLE_BEGIN$SCRIPT_NAME warning:$OPTIONAL_WARNING_STYLE_END "; printf "$@")
-
 	${PRINT_WARNING_BACKEND[@]} "$message"
 }
 
@@ -57,7 +56,6 @@ printf-warning()
 printf-error()
 {
 	local message=$(printf "$OPTIONAL_ERROR_STYLE_BEGIN$SCRIPT_NAME error:$OPTIONAL_ERROR_STYLE_END "; printf "$@")
-
 	"${PRINT_ERROR_BACKEND[@]}" "$message"
 }
 
@@ -65,7 +63,6 @@ printf-error()
 printf-message-default()
 {
 	local message=$(printf "$@")
-
 	printf '%s\n' "$message"
 }
 
@@ -73,7 +70,6 @@ printf-message-default()
 printf-interaction-default()
 {
 	local message=$(printf "$OPTIONAL_INTERACTION_STYLE_BEGIN"; printf "$@"; printf "$OPTIONAL_INTERACTION_STYLE_END")
-
 	printf '%s' "$message"
 }
 
@@ -81,7 +77,6 @@ printf-interaction-default()
 printf-warning-default()
 {
 	local message=$(printf "$@")
-
 	printf '%s' "$message"
 }
 
@@ -89,7 +84,6 @@ printf-warning-default()
 printf-error-default()
 {
 	local message=$1
-
 	printf '%s\n\n' "$message" >&2
 }
 
@@ -287,7 +281,7 @@ _'"$SCRIPT_NAME"'-branch-list()
 	local path
 	while read -r path
 	do
-		branches+=($(cd "$path"; $git_branch_command $git_branch_option | grep -v "HEAD detached at" | sed -e "s/* //" -e "s/  //"))
+		branches+=($(cd "$path"; $git_branch_command))
 	done < <(cat "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS")
 
 	local tokens=()
@@ -356,7 +350,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "b"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git branch" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -369,7 +363,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--remote-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "r"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git branch --remotes" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/remotes/**" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -382,7 +376,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--all-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "a"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git branch --all" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short)" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -398,7 +392,7 @@ _'"$SCRIPT_NAME"'-completion()
 		completion+=$(cat "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH")
 	fi
 
-	completion+=$(_'"$SCRIPT_NAME"'-branch-list "git branch" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+	completion+=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
 
 	COMPREPLY=($(compgen -W "$completion" "${COMP_WORDS[$COMP_CWORD]}"))
 }
@@ -675,6 +669,17 @@ max-string-length()
 
 	return $max_length
 }
+
+
+repository-status-pretty()
+{
+	local path=$1
+
+	local project_name=$(basename "$path")
+	printf "$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END"'\n' "$project_name"
+	(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE status "${FOREACH_ARGUMENTS[@]}")
+}
+
 
 #
 # Configuration
@@ -1017,7 +1022,7 @@ foreach-project()
 	do
 		if [ "$PROMPT_TO_USE_REPOSITORY_FUNCTION" != 'nothing' ]
 		then
-			if ! prompt-user-to-select-project "$path" 'Run your command with this repository? (y/n)'
+			if ! prompt-user-to-select-project "$path" 'Run your command with this repository? (y/n) '
 			then
 				printf '\n'
 				continue
@@ -1103,6 +1108,9 @@ $standard_action_help$custom_action_help
   -X | --tmux                       Open projects in tmux panels.
   -i | --interactive                Chose projects to do your stuff with.
   -g | --ignore-failed              Do not prompt to deal with error for failed commands in 'git' and 'foreach'.
+  -h | --help                       Show this message.
+
+\e[1mADDITIONAL OPTIONS\e[0m
   --abort-open-with <0..127>        Abort 'open' action with exit status [default: 66].
 
   --print-message <command>         Print message with command.
@@ -1119,8 +1127,6 @@ $standard_action_help$custom_action_help
   --no-colored-warnings             Do not use colored output for warnings.
   --no-colored-errors               Do not use colored output for errors.
   --no-colored-anything             Do not use colored output for anything.
-
-  -h | --help                       Show this message.
 
 \e[1mADDITIONAL ACTIONS\e[0m
   install-completion-script  Install bash completion script for project and branch names.
@@ -1276,7 +1282,7 @@ parse-option()
 
 	case "$option" in
 		W|workspace-path)
-			OPTION_WORKSPACE_PATH="$value"
+			WORKSPACE_PATH=$(normalize-path "$value")
 			return 1
 			;;
 
@@ -1566,7 +1572,7 @@ parse-action()
 			;;
 
 		cache-workspace-info)
-			DO_JOB_FUNCTION='cache-workspace-info'
+			DO_JOB_FUNCTION=cache-workspace-info
 			;;
 
 		install-completion-script)
