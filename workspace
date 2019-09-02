@@ -408,10 +408,7 @@ _'"$SCRIPT_NAME"'-completion()
 complete -F _'"$SCRIPT_NAME"'-completion '"$SCRIPT_NAME"
 
 
-MATCHERS=()
-MATCHER_PREFIXES=()
-MATCH_FUNCTIONS=()
-MATCHER_PATTERNS=()
+PREDICATES=()
 
 PROMPT_TO_USE_REPOSITORY_FUNCTION=nothing
 DEAL_WITH_FAILED_COMMAND_FUNCTION=deal-with-failed-command-manually
@@ -429,21 +426,9 @@ ABORT_OPEN_ACTION_EXIT_STATUS=66
 #
 # Options
 
-OPTION_ACTION=''
-OPTION_WORKSPACE_PATH=''
-OPTION_NEGATE_NEXT_PATTERN=false
-OPTION_NEGATE_ALL_PATTERNS=false
-OPTION_STRICT_NEXT_PATTERN=false
-OPTION_STRICT_ALL_PATTERNS=false
-OPTION_UNCOMMITED=false
-OPTION_IGNORE_DETACHED=false
-OPTION_TERMINAL_TABS=false
-OPTION_APPLE_TERMINAL=false
-OPTION_GNOME_TERMINAL=false
-OPTION_ITERM=false
-OPTION_TMUX=false
-OPTION_INTERACTIVE=false
-OPTION_IGNORE_FAILED=false
+OPTION_NEGATE_NEXT_PREDICATE=''
+OPTION_STRICT_NEXT_PATTERN=''
+OPTION_NON_DETACHED_HEAD=true
 
 
 #
@@ -480,291 +465,39 @@ perform-action()
 
 
 #
-# git pretty
+# Predicate related
 
-repository-current-branch-pretty()
-{
-	local path=$1
-
-	local output=$(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE branch | grep '^\* ')
-	printf '%s\n' "${output}"
-}
-
-
-repository-branch-list-pretty()
-{
-	local path=$1
-
-	local output=$(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE branch --all)
-	printf '%s\n' "$output"
-}
-
-
-repository-status-pretty()
-{
-	local path=$1
-
-	local project_name=$(basename "$path")
-	local status=$(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE status)
-
-	printf "$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END"'\n%s\n' "$project_name" "$status"
-}
-
-
-#
-# git raw
-
-repository-head()
-{
-	local path=$1
-
-	local output=$(cd "$path"; git branch | grep '^\* ')
-	printf '%s\n' "${output##\* }"
-}
-
-
-repository-current-branch()
-{
-	local path=$1
-
-	local output=$(cd "$path"; git branch | grep -v 'HEAD detached at' | grep '^\* ')
-	printf '%s\n' "${output##\* }"
-}
-
-
-repository-local-branch-list()
-{
-	local path=$1
-
-	local output=$(cd "$path"; git branch | grep -v 'HEAD detached at' | sed -e 's/* //' -e 's/  //')
-	printf '%s\n' "$output"
-}
-
-
-repository-remote-branch-list()
-{
-	local path=$1
-
-	local output=$(cd "$path"; git branch --remote | grep -v 'HEAD detached at' | sed -e 's/* //' -e 's/  //')
-	printf '%s\n' "$output"
-}
-
-
-repository-branch-list()
-{
-	local path=$1
-
-	local output=$(cd "$path"; git branch --all | grep -v 'HEAD detached at' | sed -e 's/* //' -e 's/  //')
-	printf '%s\n' "$output"
-}
-
-
-repository-has-detached-head()
-{
-	local path=$1
-
-	$(cd "$path"; git symbolic-ref HEAD > /dev/null 2>&1)
-	[ $? != 0 ]
-}
-
-
-#
-# Matcher functions
-
-add-matcher()
-{
-	local matcher=$1
-	local pattern=$2
-
-	MATCHERS+=("$matcher")
-
-	if $OPTION_NEGATE_NEXT_PATTERN
-	then
-		MATCHER_PREFIXES+=(negate)
-		OPTION_NEGATE_NEXT_PATTERN=false
-	else
-		MATCHER_PREFIXES+=(straight)
-	fi
-
-	if $OPTION_STRICT_NEXT_PATTERN
-	then
-		MATCH_FUNCTIONS+=(strict-match)
-		OPTION_STRICT_NEXT_PATTERN=false
-	else
-		MATCH_FUNCTIONS+=(inclusion-match)
-	fi
-
-	MATCHER_PATTERNS+=("$pattern")
-}
-
-
-straight()
-{
-	local value=$1
-
-	[ $value == 0 ]
-}
-
-
-negate()
-{
-	local value=$1
-
-	[ $value != 0 ]
-}
-
-
-inclusion-match()
+make-match-pattern()
 {
 	local string=$1
-	local pattern=$2
+	local flag=$2
 
-	[[ $string == *$pattern* ]]
+	if [ -n $flag ]
+	then
+		printf '%s\n' "$string"
+	else
+		printf '*%s*\n' "$string"
+	fi
 }
 
 
-strict-match()
+add-predicate()
 {
-	local string=$1
-	local pattern=$2
+	local predicate=$1
 
-	[ "$string" == "$pattern" ]
+	PREDICATES+=("$predicate")
 }
 
 
-matcher-project-name()
+run-predicates()
 {
-	local project_path=$1
-	local match_function=$2
-	local pattern=$3
+	local PROJECT_PATH=$1
 
-	local project_name=$(basename "$project_path")
-	"$match_function" "$project_name" "$pattern"
-}
-
-
-matcher-current-branch-name()
-{
-	local project_path=$1
-	local match_function=$2
-	local pattern=$3
-
-	local branch=$(repository-current-branch "$project_path")
-	"$match_function" "$branch" "$pattern"
-}
-
-
-matcher-local-branch-name()
-{
-	local project_path=$1
-	local match_function=$2
-	local pattern=$3
-
-	local branches=$(repository-local-branch-list "$project_path")
-	local branch
-	for branch in "${branches[@]}"
+	local predicate
+	for predicate in "${PREDICATES[@]}"
 	do
-		if "$match_function" "$branch" "$pattern"
-		then
-			return
-		fi
-	done
-
-	return 1
-}
-
-
-matcher-remote-branch-name()
-{
-	local project_path=$1
-	local match_function=$2
-	local pattern=$3
-
-	local branches=$(repository-remote-branch-list "$project_path")
-	local branch
-	for branch in "${branches[@]}"
-	do
-		if "$match_function" "$branch" "$pattern"
-		then
-			return
-		fi
-	done
-
-	return 1
-}
-
-
-matcher-branch-name()
-{
-	local project_path=$1
-	local match_function=$2
-	local pattern=$3
-
-	local branches=$(repository-branch-list "$project_path")
-	local branch
-	for branch in "${branches[@]}"
-	do
-		if "$match_function" "$branch" "$pattern"
-		then
-			return
-		fi
-	done
-
-	return 1
-}
-
-
-matcher-all()
-{
-	local project_path=$1
-	local match_function=$2
-	local pattern=$3
-
-	matcher-project-name "$project_path" "$match_function" "$pattern" || \
-	matcher-current-branch-name "$project_path" "$match_function" "$pattern" || \
-	matcher-local-branch-name "$project_path" "$match_function" "$pattern"
-}
-
-
-matcher-uncommited-changes()
-{
-	local project_path=$1
-
-	$(cd "$project_path"; git diff-index --quiet HEAD --)
-	[ $? != 0 ]
-}
-
-
-matcher-head-attached()
-{
-	local project_path=$1
-
-	! repository-has-detached-head "$project_path"
-}
-
-
-matcher-head-detached()
-{
-	local project_path=$1
-
-	repository-has-detached-head "$project_path"
-}
-
-
-run-matchers()
-{
-	local project_path=$1
-
-	local index
-	for (( index = 0; index < ${#MATCHERS[@]}; ++index ))
-	do
-		local matcher="${MATCHERS[$index]}"
-		local matcher_prefix="${MATCHER_PREFIXES[$index]}"
-		local match_function="${MATCH_FUNCTIONS[$index]}"
-		local pattern="${MATCHER_PATTERNS[$index]}"
-
-		"$matcher" "$project_path" "$match_function" "$pattern"
-		"$matcher_prefix" $?
+		local WORKSPACE_PROJECT_NAME=$(basename "$PROJECT_PATH")
+		(cd "$PROJECT_PATH"; eval "$predicate" > /dev/null 2>&1)
 		if [ $? != 0 ]
 		then
 			return 1
@@ -839,24 +572,6 @@ deal-with-failed-command-manually()
 	then
 		"$CURRENT_SHELL" -c "cd '$path'; $CURRENT_SHELL"
 	fi
-}
-
-
-exclusive()
-{
-	local values=("$@")
-
-	local true_count=( 0 )
-	local value
-	for value in "${values[@]}"
-	do
-		if $value
-		then
-			(( ++true_count ))
-		fi
-	done
-
-	[ $true_count -le 1 ]
 }
 
 
@@ -1105,8 +820,8 @@ list-repositories()
 	for path in "${repository_paths[@]}"
 	do
 		local project_name=$(basename "$path")
-		local head=$(repository-head "$path")
-		printf "$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END"' ['"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END"'] -- %s\n' "$project_name" "$head" ".${path#$PWD}"
+		local head=$(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE rev-parse --abbrev-ref HEAD)
+		printf "$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END"' ['"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END"'] %s\n' "$project_name" "$head" ".${path#$PWD}"
 	done
 	printf '\n'
 }
@@ -1279,7 +994,7 @@ foreach-project()
 	local path
 	for path in "${repository_paths[@]}"
 	do
-		if $OPTION_INTERACTIVE
+		if [ "$PROMPT_TO_USE_REPOSITORY_FUNCTION" != 'nothing' ]
 		then
 			if ! prompt-user-to-select-project "$path" 'Run your command with this repository? (y/n)'
 			then
@@ -1350,11 +1065,11 @@ $custom_action_help
   -r | --remote-branches <pattern>  Branch name pattern for remote branches.
   -a | --all-branches <pattern>     Branch name pattern for all branches.
   -s | --strict                     Match next pattern strictly.
-  -S | --strict-all                 Match all patterns strictly.
   -n | --negate                     Negate next pattern.
-  -N | --negate-all                 Negate all patterns.
+  -P | --predicate <command>        Use shell command as a predicate.
   -u | --uncommited                 Match projects with uncommited changes.
-  -d | --ignore-detached            Do not match projects with detached HEAD.
+  -d | --detached                   Match projects with detached HEAD.
+  -D | --detached-only              Match only projects with detached HEAD.
   -t | --tabs                       Open projects in current terminal tabs/panels.
   -A | --apple-terminal             Open projects in Apple terminal tabs.
   -G | --gnome-terminal             Open projects in Gnome terminal tabs.
@@ -1428,7 +1143,7 @@ pick-project-and-perform-action()
 			continue
 		fi
 
-		run-matchers "$project_path"
+		run-predicates "$project_path"
 		if [ $? != 0 ]
 		then
 			continue
@@ -1535,52 +1250,73 @@ parse-option()
 			;;
 
 		p|project)
-			add-matcher 'matcher-project-name' "$value"
+			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE" '[[ $WORKSPACE_PROJECT_NAME == '"$pattern"' ]]'
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
+			OPTION_STRICT_NEXT_PATTERN=''
 			return 1
 			;;
 
 		B|branch)
-			add-matcher 'matcher-current-branch-name' "$value"
+			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $(git rev-parse --abbrev-ref HEAD) == '"$pattern"' ]]'
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
+			OPTION_STRICT_NEXT_PATTERN=''
 			return 1
 			;;
 
 		b|branches)
-			add-matcher 'matcher-local-branch-name' "$value"
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/heads/**" | grep -F '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
+			OPTION_STRICT_NEXT_PATTERN=''
 			return 1
 			;;
 
 		r|remote-branches)
-			add-matcher 'matcher-remote-branch-name' "$value"
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/remotes/**" | grep -F '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
+			OPTION_STRICT_NEXT_PATTERN=''
 			return 1
 			;;
 
 		a|all-branches)
-			add-matcher 'matcher-branch-name' "$value"
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" | grep -F '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
+			OPTION_STRICT_NEXT_PATTERN=''
+			return 1
+			;;
+
+		P|predicate)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE $value"
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
 			return 1
 			;;
 
 		s|strict)
-			OPTION_STRICT_NEXT_PATTERN=true
-			;;
-
-		S|strict-all)
-			OPTION_STRICT_ALL_PATTERNS=true
+			OPTION_STRICT_NEXT_PATTERN='-x'
 			;;
 
 		n|negate)
-			OPTION_NEGATE_NEXT_PATTERN=true
-			;;
-
-		N|negate-all)
-			OPTION_NEGATE_ALL_PATTERNS=true
+			OPTION_NEGATE_NEXT_PREDICATE='!'
 			;;
 
 		u|uncommited)
-			OPTION_UNCOMMITED=true
+			add-predicate '! git diff-index --quiet HEAD --'
 			;;
 
-		d|ignore-detached)
-			OPTION_IGNORE_DETACHED=true
+		d|detached)
+			OPTION_NON_DETACHED_HEAD=false
+			;;
+
+		D|detached-only)
+			OPTION_NON_DETACHED_HEAD=false
+			add-predicate '! git symbolic-ref --quiet HEAD'
 			;;
 
 		t|tabs)
@@ -1796,7 +1532,8 @@ parse-parameters()
 		local parameter_type=$?
 		if [ $parameter_type == $PARAM_TYPE_STRING ]
 		then
-			add-matcher 'matcher-all' "$parameter"
+			add-predicate '[[ $WORKSPACE_PROJECT_NAME == *'"$parameter"'* ]] || git for-each-ref --format="%(refname:short)" "refs/heads/**" | grep -F '"$parameter"
+			continue
 		fi
 
 		case $parameter_type in
@@ -2125,6 +1862,12 @@ then
 fi
 
 apply-parameters
+
+# TODO: find better place for this (should be in 'parse-parameters', but since 'parse-parameters' is called two times, this will always be set after the first call).
+if $OPTION_NON_DETACHED_HEAD
+then
+	add-predicate 'git symbolic-ref --quiet HEAD'
+fi
 
 
 #
