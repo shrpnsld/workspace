@@ -419,6 +419,7 @@ PRINT_ERROR_BACKEND=(printf-error-default)
 DO_JOB_FUNCTION=pick-project-and-perform-action
 PERFORM_ACTION_FUNCTION=''
 ABORT_OPEN_ACTION_EXIT_STATUS=66
+PROGRESS_FUNCTION=print-progress-string
 
 
 #
@@ -627,7 +628,7 @@ array-fill()
 	local size=$1
 	local value=$2
 
-	printf '%.0s\n' "$value" {1..${#MATCH_FUNCTIONS[@]}}
+	printf "$value"'%.0s\n' {1..$size}
 }
 
 
@@ -1112,7 +1113,7 @@ $standard_action_help$custom_action_help
 
 \e[1mADDITIONAL OPTIONS\e[0m
   --abort-open-with <0..127>        Abort 'open' action with exit status [default: 66].
-
+  --no-progress-bar                 Do not show progress bar.
   --print-message <command>         Print message with command.
   --print-interaction <command>     Print interactions with command.
   --print-warrning <command>        Print warning with command.
@@ -1157,11 +1158,10 @@ pick-project-and-perform-action()
 		return 1
 	fi
 
-	printf-message 'Scanning projects...'
 	matched_projects=()
 	for (( index = 0; ; ++index ))
 	do
-		print-progress-string $index $project_count
+		show-progress 'Scanning projects' $index $project_count
 
 		if [ $index == $project_count ]
 		then
@@ -1183,8 +1183,6 @@ pick-project-and-perform-action()
 
 		matched_projects+=("$project_path")
 	done
-
-	printf '\n\n'
 
 	if [ "${#matched_projects[@]}" == 0 ]
 	then
@@ -1403,6 +1401,10 @@ parse-option()
 
 		g|ignore-failed)
 			DEAL_WITH_FAILED_COMMAND_FUNCTION=nothing
+			;;
+
+		no-progress-bar)
+			PROGRESS_FUNCTION=nothing
 			;;
 
 		colored-output)
@@ -1753,24 +1755,35 @@ PROGRESS_BAR_FILL=$(printf "$PROGRESS_BAR_CHARACTER"'%.0s' $(seq 1 $PROGRESS_BAR
 
 make-progress-string()
 {
-	local current=$1
-	local total=$2
+	local description=$1
+	local current=$2
+	local total=$3
 
 	local percentage=$(( current * 100 / total ))
 	local current_length=$(( percentage * PROGRESS_BAR_SIZE / 100 ))
 	local fill="${PROGRESS_BAR_FILL:$PROGRESS_BAR_SIZE-$current_length}"
-	printf '[%*s] % 3s%% (%*s/%s)' -$PROGRESS_BAR_SIZE "$fill" "$percentage" ${#total} $current $total
-	return $current_length
+	printf '%s %*s/%s  [%*s] % 3s%%' "$description" ${#total} $current $total -$PROGRESS_BAR_SIZE "$fill" "$percentage"
 }
 
 
 print-progress-string()
 {
-	local current=$1
-	local total=$2
+	local description=$1
+	local current=$2
+	local total=$3
 
-	progress_string=$(make-progress-string $current $total)
+	local progress_string=$(make-progress-string "$description" $current $total)
 	printf '\r%s' "$progress_string"
+	if [ $current == $total ]
+	then
+		printf '\n\n'
+	fi
+}
+
+
+show-progress()
+{
+	"$PROGRESS_FUNCTION" "$@"
 }
 
 
