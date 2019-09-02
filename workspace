@@ -164,14 +164,8 @@ fi
 
 
 CURRENT_SHELL=$(current-shell)
-CURRENT_TERMINAL_APPLICATION=$TERMINAL_APPLICATION_UNKNOWN
 
 WORKSPACE_PATH="$PWD"
-
-CUSTOM_ACTIONS=()
-CUSTOM_ACTIONS_OPTIONS=()
-CUSTOM_ACTIONS_COMMANDS=()
-CUSTOM_ACTIONS_DESCRIPTIONS=()
 
 WORKSPACE_RC_DIR_NAME="$SCRIPT_NAME-script"
 
@@ -191,7 +185,12 @@ COMPLETION_DIR_PATH="$LOCAL_WORKSPACE_RC_PATH/completion"
 COMPLETION_SOURCE_PROJECTS_PATH="$COMPLETION_DIR_PATH/source-projects"
 COMPLETION_PROJECT_LIST_PATH="$COMPLETION_DIR_PATH/project-list"
 
-SCRIPT_ACTIONS=(status list git foreach open cache-workspace-info install-completion-script)
+
+STANDARD_ACTIONS=(status list git foreach open)
+STANDARD_ACTIONS_DESCRIPTIONS=('show git status for projects' 'list projects' 'run git command for each project' 'run command for each project' 'open projects in shell (default), terminal tabs or tmux panels')
+ADDITIONAL_ACTIONS=(cache-workspace-info install-completion-script)
+
+ALL_ACTIONS=("${STANDARD_ACTIONS[@]}" "${ADDITIONAL_ACTIONS[@]}")
 
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
@@ -310,7 +309,7 @@ _'"$SCRIPT_NAME"'-completion()
 {
 	if [ $COMP_CWORD == 1 ]
 	then
-		local ACTIONS=('"${SCRIPT_ACTIONS[@]}"')
+		local ACTIONS=('"${ALL_ACTIONS[@]}"')
 		local custom_actions_path
 		custom_actions_path=$(_'"$SCRIPT_NAME"'-config-path-for-file "$_'"$SCRIPT_NAME"'_CUSTOM_ACTIONS_FILE_NAME")
 		if [ $? == 0 ]
@@ -407,6 +406,11 @@ _'"$SCRIPT_NAME"'-completion()
 
 complete -F _'"$SCRIPT_NAME"'-completion '"$SCRIPT_NAME"
 
+
+CUSTOM_ACTIONS=()
+CUSTOM_ACTIONS_OPTIONS=()
+CUSTOM_ACTIONS_COMMANDS=()
+CUSTOM_ACTIONS_DESCRIPTIONS=()
 
 PREDICATES=()
 
@@ -654,6 +658,23 @@ array-index-of()
 	return 1
 }
 
+
+max-string-length()
+{
+	local strings=("$@")
+
+	local string=$1
+	local max_length=$(( ${#string} ))
+	for string in "${strings[@]:1}"
+	do
+		if (( ${#string} > $max_length ))
+		then
+			max_length=$(( ${#string} ))
+		fi
+	done
+
+	return $max_length
+}
 
 #
 # Configuration
@@ -1013,25 +1034,21 @@ foreach-project()
 }
 
 
-foreach-project-git()
-{
-	FOREACH_ARGUMENTS=(git ${FOREACH_ARGUMENTS[@]})
-	foreach-project "$@"
-}
-
-
 #
 # Jobs
 
 show-help()
 {
+	max-string-length "${STANDARD_ACTIONS[@]}" "${CUSTOM_ACTIONS[@]}"
+	local action_field_length=$(( $? + 2 ))
+
 	local custom_action_help=''
 	local index
 	for (( index = 0; index < ${#CUSTOM_ACTIONS[@]}; ++index ))
 	do
-		local action=$(printf '%*s' -11 "${CUSTOM_ACTIONS[$index]}")
-		local description="${CUSTOM_ACTIONS_DESCRIPTIONS[$index]}"
-		if [ -z "$description" ]
+		local action_field=$(printf '%*s' -$action_field_length "${CUSTOM_ACTIONS[$index]}")
+		local description_field="${CUSTOM_ACTIONS_DESCRIPTIONS[$index]}"
+		if [ -z "$description_field" ]
 		then
 			if [ -n "${CUSTOM_ACTIONS_OPTIONS[$index]}" ]
 			then
@@ -1040,10 +1057,24 @@ show-help()
 				local options=''
 			fi
 
-			description="\$ $SCRIPT_NAME $options[<...>] -- ${CUSTOM_ACTIONS_COMMANDS[$index]} [<...>]"
+			description_field="\$ $SCRIPT_NAME $options[<...>] -- ${CUSTOM_ACTIONS_COMMANDS[$index]} [<...>]"
 		fi
 
-		custom_action_help+="  $action $description\n"
+		custom_action_help+="  $action_field$description_field\n"
+	done
+
+	local standard_action_help=''
+	for (( index = 0; index < ${#STANDARD_ACTIONS[@]}; ++index ))
+	do
+		local action="${STANDARD_ACTIONS[$index]}"
+		if array-contains "$action" "${CUSTOM_ACTIONS[@]}"
+		then
+			continue
+		fi
+
+		action_field=$(printf '%*s' -$action_field_length "$action")
+		description_field="${STANDARD_ACTIONS_DESCRIPTIONS[$index]}"
+		standard_action_help+="  $action_field$description_field\n"
 	done
 
 	printf \
@@ -1051,12 +1082,7 @@ show-help()
   $SCRIPT_NAME <action> [<options>...]
 
 \e[1mACTIONS\e[0m
-  status      show git status for projects.
-  list        list projects.
-  git         run git command for each project.
-  foreach     run command for each project.
-  open        open projects in shell (default), terminal tabs or tmux panels.
-$custom_action_help
+$standard_action_help$custom_action_help
 \e[1mOPTIONS\e[0m
   -W | --workspace-path <path>      Search path [default: current directory].
   -p | --project <pattern>          Project name pattern.
@@ -1214,6 +1240,11 @@ check-parameter()
 {
 	local string=$1
 
+	if [ -z "$string" ]
+	then
+		return $PARAM_TYPE_BAD_PARAMETER
+	fi
+
 	if [ "${string:0:3}" == '--' ] && [ "${#string}" == 2 ]
 	then
 		return $PARAM_TYPE_DELIMITER
@@ -1320,31 +1351,52 @@ parse-option()
 			;;
 
 		t|tabs)
-			OPTION_TERMINAL_TABS=true
+			current-terminal-application
+			case $? in
+				$TERMINAL_APPLICATION_APPLE)
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
+					;;
+
+				$TERMINAL_APPLICATION_ITERM)
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-iterm
+					;;
+
+				$TERMINAL_APPLICATION_GNOME)
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-gnome-terminal
+					;;
+
+				$TERMINAL_APPLICATION_TMUX)
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=continue-tmux
+					;;
+
+				$TERMINAL_APPLICATION_UNKNOWN)
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=nothing
+					;;
+			esac
 			;;
 
 		A|apple-terminal)
-			OPTION_APPLE_TERMINAL=true
+			OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
 			;;
 
 		G|gnome-terminal)
-			OPTION_GNOME_TERMINAL=true
+			OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-gnome-terminal
 			;;
 
 		I|iterm)
-			OPTION_ITERM=true
+			OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-iterm
 			;;
 
 		X|tmux)
-			OPTION_TMUX=true
+			OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-tmux
 			;;
 
 		i|interactive)
-			OPTION_INTERACTIVE=true
+			PROMPT_TO_USE_REPOSITORY_FUNCTION=prompt-user-to-select-project-implementation
 			;;
 
 		g|ignore-failed)
-			OPTION_IGNORE_FAILED=true
+			DEAL_WITH_FAILED_COMMAND_FUNCTION=nothing
 			;;
 
 		colored-output)
@@ -1491,9 +1543,22 @@ parse-option()
 }
 
 
+PARSE_ACTION_UNKNOWN_ACTION=255
+
 parse-action()
 {
 	local action=$1
+
+	if array-contains "$action" "${CUSTOM_ACTIONS[@]}"
+	then
+		PERFORM_ACTION_FUNCTION=foreach-project
+		local index=$(array-index-of "$action" "${CUSTOM_ACTIONS[@]}")
+
+		local commands=()
+		eval 'for word in '"${CUSTOM_ACTIONS_COMMANDS[$index]}"'; do commands+=("$word"); done'
+		FOREACH_ARGUMENTS=("${commands[@]}" "${FOREACH_ARGUMENTS[@]}")
+		return $index
+	fi
 
 	case "$action" in
 		''|-h|--help)
@@ -1508,13 +1573,29 @@ parse-action()
 			DO_JOB_FUNCTION=install-completion-script
 			;;
 
-		*)
-			if ! array-contains "$action" "${SCRIPT_ACTIONS[@]}" "${CUSTOM_ACTIONS[@]}"
-			then
-				return 1
-			fi
+		status)
+			PERFORM_ACTION_FUNCTION=show-repositories-status
+			;;
 
-			OPTION_ACTION="$action"
+		list)
+			PERFORM_ACTION_FUNCTION=list-repositories
+			;;
+
+		open)
+			PERFORM_ACTION_FUNCTION=open-projects
+			;;
+
+		git)
+			PERFORM_ACTION_FUNCTION=foreach-project
+			FOREACH_ARGUMENTS=(git)
+			;;
+
+		foreach)
+			PERFORM_ACTION_FUNCTION=foreach-project
+			;;
+
+		*)
+			return $PARSE_ACTION_UNKNOWN_ACTION
 			;;
 	esac
 }
@@ -1564,7 +1645,17 @@ parse-parameters()
 			$PARAM_TYPE_LONG_OPTION)
 				local value="${parameters[$parameter_index + 1]}"
 				parse-option "$parameter" "$value"
-				(( parameter_index += $? ))
+				local retval=$?
+				case $retval in
+					$PARSE_OPTION_UNKNOWN_OPTION)
+						printf-error 'unknown long option "%s"' "$parameter"
+						return 1
+						;;
+
+					*)
+						(( parameter_index += retval ))
+						;;
+				esac
 				continue
 				;;
 
@@ -1597,19 +1688,19 @@ validate-options()
 
 	case $action in
 		status|list)
-			if $OPTION_TERMINAL_TABS || $OPTION_APPLE_TERMINAL || $OPTION_GNOME_TERMINAL || $OPTION_ITERM || $OPTION_TMUX
+			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-apple-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
 			then
 				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" action'
 				return 1
 			fi
 
-			if $OPTION_INTERACTIVE
+			if [ "$PROMPT_TO_USE_REPOSITORY_FUNCTION" != 'nothing' ]
 			then
 				printf-error '"-i" ("--interactive") should be used with "open", "foreach" or "git" action'
 				return 1
 			fi
 
-			if $OPTION_IGNORE_FAILED
+			if [ "$DEAL_WITH_FAILED_COMMAND_FUNCTION" == 'nothing' ]
 			then
 				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" action'
 				return 1
@@ -1617,7 +1708,7 @@ validate-options()
 			;;
 
 		open)
-			if $OPTION_IGNORE_FAILED
+			if [ "$DEAL_WITH_FAILED_COMMAND_FUNCTION" == 'nothing' ]
 			then
 				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" action'
 				return 1
@@ -1625,7 +1716,7 @@ validate-options()
 			;;
 
 		git|foreach)
-			if $OPTION_TERMINAL_TABS || $OPTION_APPLE_TERMINAL || $OPTION_GNOME_TERMINAL || $OPTION_ITERM || $OPTION_TMUX
+			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-apple-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
 			then
 				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" action'
 				return 1
@@ -1633,135 +1724,16 @@ validate-options()
 			;;
 	esac
 
-	if ! exclusive $OPTION_TERMINAL_TABS $OPTION_APPLE_TERMINAL $OPTION_GNOME_TERMINAL $OPTION_ITERM $OPTION_TMUX
+	if [ -n "$WORKSPACE_PATH" ] && [ ! -d "$WORKSPACE_PATH" ]
 	then
-		printf-error 'you can'"'"'t specify both Gnome Terminal tabs and tmux panels'
+		printf-error "'"'%s'"'"' does not exist' "$WORKSPACE_PATH"
 		return 1
 	fi
 
-	if [ -n "$OPTION_WORKSPACE_PATH" ] && [ ! -d "$OPTION_WORKSPACE_PATH" ]
+	if [ "$OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION" == 'nothing' ]
 	then
-		printf-error "'"'%s'"'"' does not exist' "$OPTION_WORKSPACE_PATH"
+		printf-error 'failed to detect terminal application, or terminal is not supported. Try to specify terminal explicitly with -A, -G, -I, -X'
 		return 1
-	fi
-
-	if $OPTION_TERMINAL_TABS
-	then
-		current-terminal-application
-		local retval=$?
-		if [ $retval == $TERMINAL_APPLICATION_UNKNOWN ]
-		then
-			printf-error 'failed to detect terminal application, or terminal is not supported. Specify it explicitly with -A, -G, -I, -X'
-			return 1
-		fi
-
-		CURRENT_TERMINAL_APPLICATION=$retval
-	fi
-}
-
-
-apply-parameters()
-{
-	case $OPTION_ACTION in
-		status)
-			PERFORM_ACTION_FUNCTION=show-repositories-status
-			;;
-
-		list)
-			PERFORM_ACTION_FUNCTION=list-repositories
-			;;
-
-		open)
-			PERFORM_ACTION_FUNCTION=open-projects
-			;;
-
-		git)
-			PERFORM_ACTION_FUNCTION=foreach-project-git
-			;;
-
-		foreach)
-			PERFORM_ACTION_FUNCTION=foreach-project
-			;;
-
-		*)
-			PERFORM_ACTION_FUNCTION=foreach-project
-			local index=$(array-index-of "$OPTION_ACTION" "${CUSTOM_ACTIONS[@]}")
-			FOREACH_ARGUMENTS=("${CUSTOM_ACTIONS_COMMANDS[$index]}" "${FOREACH_ARGUMENTS[@]}")
-			;;
-	esac
-
-	if [ -n "$OPTION_WORKSPACE_PATH" ]
-	then
-		WORKSPACE_PATH=$(normalize-path "$OPTION_WORKSPACE_PATH")
-	fi
-
-	if $OPTION_UNCOMMITED
-	then
-		MATCHERS+=(matcher-uncommited-changes)
-		MATCHER_PREFIXES+=(straight)
-		MATCH_FUNCTIONS+=(inclusion-match)
-		MATCHER_PATTERNS+=('')
-	fi
-
-	if $OPTION_IGNORE_DETACHED
-	then
-		MATCHERS+=(matcher-head-attached)
-		MATCHER_PREFIXES+=(straight)
-		MATCH_FUNCTIONS+=(inclusion-match)
-		MATCHER_PATTERNS+=('')
-	fi
-
-	if $OPTION_NEGATE_ALL_PATTERNS
-	then
-		MATCH_PREFIXES=($(array-fill ${#MATCH_FUNCTIONS[@]} 'negate'))
-	fi
-
-	if $OPTION_STRICT_ALL_PATTERNS
-	then
-		MATCH_FUNCTIONS=($(array-fill ${#MATCH_FUNCTIONS[@]} 'strict-match'))
-	fi
-
-	if $OPTION_TERMINAL_TABS
-	then
-		case $CURRENT_TERMINAL_APPLICATION in
-			$TERMINAL_APPLICATION_APPLE)
-				OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
-				;;
-
-			$TERMINAL_APPLICATION_ITERM)
-				OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-iterm
-				;;
-
-			$TERMINAL_APPLICATION_GNOME)
-				OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-gnome-terminal
-				;;
-
-			$TERMINAL_APPLICATION_TMUX)
-				OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=continue-tmux
-				;;
-		esac
-	elif $OPTION_APPLE_TERMINAL
-	then
-		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
-	elif $OPTION_GNOME_TERMINAL
-	then
-		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-gnome-terminal
-	elif $OPTION_ITERM
-	then
-		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-iterm
-	elif $OPTION_TMUX
-	then
-		OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-tmux
-	fi
-
-	if $OPTION_INTERACTIVE
-	then
-		PROMPT_TO_USE_REPOSITORY_FUNCTION=prompt-user-to-select-project-implementation
-	fi
-
-	if $OPTION_IGNORE_FAILED
-	then
-		DEAL_WITH_FAILED_COMMAND_FUNCTION=nothing
 	fi
 }
 
@@ -1848,20 +1820,24 @@ fi
 #
 # Parameters
 
-parse-action "$@"
-if [ $? != 0 ]
+action=$1
+
+parse-action "$action"
+retval=$?
+if [ $retval == $PARSE_ACTION_UNKNOWN_ACTION ]
 then
-	printf-error 'unknown action "%s"' "$1"
+	printf-error 'unknown action "%s"' "$action"
 	exit 1
 fi
 
-parse-parameters "${@:2}" && validate-options "$1"
+eval 'for option in '"${CUSTOM_ACTIONS_OPTIONS[$retval]}"'; do custom_action_options+=("$option"); done'
+all_parameters=("${custom_action_options[@]}" "${@:2}")
+
+parse-parameters "${all_parameters[@]}" && validate-options "$action"
 if [ $? != 0 ]
 then
 	exit 1
 fi
-
-apply-parameters
 
 # TODO: find better place for this (should be in 'parse-parameters', but since 'parse-parameters' is called two times, this will always be set after the first call).
 if $OPTION_NON_DETACHED_HEAD
