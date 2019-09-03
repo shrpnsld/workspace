@@ -1621,7 +1621,11 @@ parse-parameters()
 		local parameter_type=$?
 		if [ $parameter_type == $PARAM_TYPE_STRING ]
 		then
-			add-predicate '[[ $WORKSPACE_PROJECT_NAME == *'"$parameter"'* ]] || git for-each-ref --format="%(refname:short)" "refs/heads/**" | grep -F '"$parameter"
+			local pattern=$(make-match-pattern "$parameter" "$OPTION_STRICT_NEXT_PATTERN")
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' ([[ $WORKSPACE_PROJECT_NAME == '"$pattern"' ]] || git for-each-ref --format="%(refname:short)" "refs/heads/**" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $parameter"')'
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
+			OPTION_STRICT_NEXT_PATTERN=''
 			continue
 		fi
 
