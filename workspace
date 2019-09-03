@@ -477,7 +477,7 @@ make-match-pattern()
 	local string=$1
 	local flag=$2
 
-	if [ -n $flag ]
+	if [ -n "$flag" ]
 	then
 		printf '%s\n' "$string"
 	else
@@ -1096,7 +1096,7 @@ show-help()
 \e[1mACTIONS\e[0m
 $standard_action_help$custom_action_help
 \e[1mOPTIONS\e[0m
-  -W | --workspace-path <path>      Search path [default: current directory].
+  <pattern>                         Both project names and local branch names pattern.
   -p | --project <pattern>          Project name pattern.
   -B | --branch <pattern>           Current branch name pattern.
   -b | --branches <pattern>         Branch name pattern for local branches.
@@ -1108,6 +1108,7 @@ $standard_action_help$custom_action_help
   -u | --uncommited                 Match projects with uncommited changes.
   -d | --detached                   Match projects with detached HEAD.
   -D | --detached-only              Match only projects with detached HEAD.
+  -W | --workspace-path <path>      Search path [default: current directory].
   -t | --tabs                       Open projects in current terminal tabs/panels.
   -A | --apple-terminal             Open projects in Apple terminal tabs.
   -G | --gnome-terminal             Open projects in Gnome terminal tabs.
@@ -1292,8 +1293,8 @@ parse-option()
 			;;
 
 		p|project)
-			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
-			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE" '[[ $WORKSPACE_PROJECT_NAME == '"$pattern"' ]]'
+			local pattern=$(make-match-pattern "$value" "$OPTION_STRICT_NEXT_PATTERN")
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $WORKSPACE_PROJECT_NAME == '"$pattern"' ]]'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
 			OPTION_STRICT_NEXT_PATTERN=''
@@ -1301,7 +1302,7 @@ parse-option()
 			;;
 
 		B|branch)
-			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
+			local pattern=$(make-match-pattern "$value" "$OPTION_STRICT_NEXT_PATTERN")
 			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $(git rev-parse --abbrev-ref HEAD) == '"$pattern"' ]]'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
@@ -1310,7 +1311,7 @@ parse-option()
 			;;
 
 		b|branches)
-			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/heads/**" | grep -F '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/heads/**" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $value"')'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
 			OPTION_STRICT_NEXT_PATTERN=''
@@ -1318,7 +1319,7 @@ parse-option()
 			;;
 
 		r|remote-branches)
-			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/remotes/**" | grep -F '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/remotes/**" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $value"')'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
 			OPTION_STRICT_NEXT_PATTERN=''
@@ -1326,7 +1327,7 @@ parse-option()
 			;;
 
 		a|all-branches)
-			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" | grep -F '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $value"')'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
 			OPTION_STRICT_NEXT_PATTERN=''
@@ -1341,7 +1342,7 @@ parse-option()
 			;;
 
 		s|strict)
-			OPTION_STRICT_NEXT_PATTERN='-x'
+			OPTION_STRICT_NEXT_PATTERN='--line-regexp'
 			;;
 
 		n|negate)
