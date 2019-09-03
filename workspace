@@ -247,7 +247,7 @@ _'"$SCRIPT_NAME"'-cache-completion-sources()
 			fi
 
 			path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
-		done < <(grep -E "^[^# 	]+$" "$completion_source_patterns_path" | sed -e "s/^/\"/" -e "s/$/\"/")
+		done < <(grep --extended-regexp --invert-match --regexp "^#" --regexp "^[ \t]*$" "$completion_source_patterns_path" | sed --expression "s/^/\"/" --expression "s/$/\"/")
 
 		if [ "${#path_pattern_options[@]}" \> 0 ]
 		then
@@ -313,10 +313,10 @@ _'"$SCRIPT_NAME"'-completion()
 			do
 				local action="${line%% *}"
 				ACTIONS+=("$action")
-			done < <(grep -E "^\s*[^# 	]\+.*" "$custom_actions_path")
+			done < <(grep --extended-regexp --invert-match --regexp "^#" --regexp "^[ \t]*$" "$custom_actions_path")
 		fi
 
-		COMPREPLY=($(compgen -W "${ACTIONS[*]}" "${COMP_WORDS[1]}"))
+		COMPREPLY=($(compgen -W "${ACTIONS[*]}" -- "${COMP_WORDS[1]}"))
 		return
 	fi
 
@@ -330,7 +330,7 @@ _'"$SCRIPT_NAME"'-completion()
 		fi
 
 		local projects=$(cat "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH")
-		COMPREPLY=($(compgen -W "$projects" "${COMP_WORDS[$COMP_CWORD]}"))
+		COMPREPLY=($(compgen -W "$projects" -- "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
 
@@ -343,7 +343,7 @@ _'"$SCRIPT_NAME"'-completion()
 			return
 		fi
 
-		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
+		COMPREPLY=($(compgen -W "$branches" -- "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
 
@@ -356,7 +356,7 @@ _'"$SCRIPT_NAME"'-completion()
 			return
 		fi
 
-		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
+		COMPREPLY=($(compgen -W "$branches" -- "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
 
@@ -369,7 +369,7 @@ _'"$SCRIPT_NAME"'-completion()
 			return
 		fi
 
-		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
+		COMPREPLY=($(compgen -W "$branches" -- "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
 
@@ -382,7 +382,7 @@ _'"$SCRIPT_NAME"'-completion()
 			return
 		fi
 
-		COMPREPLY=($(compgen -W "$branches" "${COMP_WORDS[$COMP_CWORD]}"))
+		COMPREPLY=($(compgen -W "$branches" -- "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
 
@@ -394,7 +394,7 @@ _'"$SCRIPT_NAME"'-completion()
 
 	completion+=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
 
-	COMPREPLY=($(compgen -W "$completion" "${COMP_WORDS[$COMP_CWORD]}"))
+	COMPREPLY=($(compgen -W "$completion" -- "${COMP_WORDS[$COMP_CWORD]}"))
 }
 
 
@@ -770,7 +770,7 @@ cache-project-paths()
 
 			# removing quotes, so they are not part of the pattern
 			ignore_pattern_options+=('!' '-path' "${pattern:1:${#pattern}-2}")
-		done < <(grep -E '^[^# 	]+$' "$config_ignore_path" | sed -e 's/^/"/' -e 's/$/"/') # quoting patterns to prevent asterisk expansion
+		done < <(grep --extended-regexp --invert-match --regexp '^#' --regexp '^\s[ \t]*$' "$config_ignore_path" | sed --expression 's/^/"/' --expression 's/$/"/') # quoting patterns to prevent asterisk expansion
 	fi
 
 	# collect paths
@@ -1804,7 +1804,7 @@ then
 		CUSTOM_ACTIONS_OPTIONS+=("$options")
 		CUSTOM_ACTIONS_COMMANDS+=("$cmd")
 		CUSTOM_ACTIONS_DESCRIPTIONS+=("$description")
-	done < <(grep -E '^\s*[^# 	]+' "$custom_actions_path")
+	done < <(grep --extended-regexp --invert-match --regexp '^#' --regexp '^\s[ \t]*$' "$custom_actions_path")
 fi
 
 
@@ -1820,7 +1820,7 @@ then
 		option="${line%% *}"
 		value="${line#* }"
 		implicit_arguments+=("$option" "$value")
-	done < <(grep -E '^\s*[^# 	]' "$implicit_arguments_path")
+	done < <(grep --extended-regexp --invert-match --regexp '^#' --regexp '^\s[ \t]*$' "$implicit_arguments_path")
 fi
 
 parse-parameters "${implicit_arguments[@]}"
