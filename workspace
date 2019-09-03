@@ -33,6 +33,8 @@ OPTIONAL_WARNING_STYLE_END=''
 OPTIONAL_ERROR_STYLE_BEGIN=''
 OPTIONAL_ERROR_STYLE_END=''
 
+PROGRESS_FUNCTION=nothing
+
 
 printf-message()
 {
@@ -154,6 +156,11 @@ then
 
 	OPTIONAL_ERROR_STYLE_BEGIN="$TEXT_STYLE_ERROR"
 	OPTIONAL_ERROR_STYLE_END="$TEXT_STYLE_NORMAL"
+fi
+
+if [ -t 1 ]
+then
+	PROGRESS_FUNCTION=print-progress-string
 fi
 
 
@@ -419,7 +426,6 @@ PRINT_ERROR_BACKEND=(printf-error-default)
 DO_JOB_FUNCTION=pick-project-and-perform-action
 PERFORM_ACTION_FUNCTION=''
 ABORT_OPEN_ACTION_EXIT_STATUS=66
-PROGRESS_FUNCTION=print-progress-string
 
 
 #
@@ -1113,6 +1119,7 @@ $standard_action_help$custom_action_help
 
 \e[1mADDITIONAL OPTIONS\e[0m
   --abort-open-with <0..127>        Abort 'open' action with exit status [default: 66].
+  --progress-bar                    Show progress bar.
   --no-progress-bar                 Do not show progress bar.
   --print-message <command>         Print message with command.
   --print-interaction <command>     Print interactions with command.
@@ -1401,6 +1408,10 @@ parse-option()
 
 		g|ignore-failed)
 			DEAL_WITH_FAILED_COMMAND_FUNCTION=nothing
+			;;
+
+		progress-bar)
+			PROGRESS_FUNCTION=print-progress-string
 			;;
 
 		no-progress-bar)
