@@ -1102,6 +1102,7 @@ $standard_action_help$custom_action_help
   -b | --branches <pattern>         Branch name pattern for local branches.
   -r | --remote-branches <pattern>  Branch name pattern for remote branches.
   -a | --all-branches <pattern>     Branch name pattern for all branches.
+  -t | --tags <pattern>             Tag name pattern.
   -s | --strict                     Match next pattern strictly.
   -n | --negate                     Negate next pattern.
   -P | --predicate <command>        Use shell command as a predicate.
@@ -1109,7 +1110,7 @@ $standard_action_help$custom_action_help
   -d | --detached                   Match projects with detached HEAD.
   -D | --detached-only              Match only projects with detached HEAD.
   -W | --workspace-path <path>      Search path [default: current directory].
-  -t | --tabs                       Open projects in current terminal tabs/panels.
+  -T | --tabs                       Open projects in current terminal tabs/panels.
   -A | --apple-terminal             Open projects in Apple terminal tabs.
   -G | --gnome-terminal             Open projects in Gnome terminal tabs.
   -I | --iterm                      Open projects in iTerm tabs.
@@ -1334,6 +1335,14 @@ parse-option()
 			return 1
 			;;
 
+		t|tags)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/tags/**" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
+			OPTION_STRICT_NEXT_PATTERN=''
+			return 1
+			;;
+
 		P|predicate)
 			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE $value"
 
@@ -1362,7 +1371,7 @@ parse-option()
 			add-predicate '! git symbolic-ref --quiet HEAD'
 			;;
 
-		t|tabs)
+		T|tabs)
 			current-terminal-application
 			case $? in
 				$TERMINAL_APPLICATION_APPLE)
