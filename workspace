@@ -776,7 +776,7 @@ cache-project-paths()
 	fi
 
 	# collect paths
-	local git_dirs=($(find "$workspace_path" "${ignore_pattern_options[@]}" -type d -name '.git'))
+	local git_dirs=($(find "$workspace_path" "${ignore_pattern_options[@]}" -type d -name '.git' | sort))
 	local project_paths=()
 	local git_dir
 	for git_dir in "${git_dirs[@]}"
