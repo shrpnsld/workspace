@@ -169,22 +169,18 @@ CURRENT_SHELL=$(current-shell)
 WORKSPACE_PATH="$PWD"
 
 WORKSPACE_RC_DIR_NAME="$SCRIPT_NAME-script"
+LOCAL_WORKSPACE_RC_PATH="./.$WORKSPACE_RC_DIR_NAME"
+CONFIG_DIR_PATHS=("$LOCAL_WORKSPACE_RC_PATH" "$HOME/.config/$WORKSPACE_RC_DIR_NAME" "/etc/$WORKSPACE_RC_DIR_NAME")
 
 CUSTOM_ACTIONS_FILE_NAME='custom-actions'
 IMPLICIT_ARGUMENTS_FILE_NAME='implicit-arguments'
 IGNORE_FILE_NAME='ignore-paths'
-COMPLETION_SOURCES_PATTERNS_FILE_NAME='completion-sources'
-
-LOCAL_WORKSPACE_RC_PATH="./.$WORKSPACE_RC_DIR_NAME"
-
-CONFIG_DIR_PATHS=("$LOCAL_WORKSPACE_RC_PATH" "$HOME/.config/$WORKSPACE_RC_DIR_NAME" "/etc/$WORKSPACE_RC_DIR_NAME")
+COMPLETION_PATH_FILTERS_FILE_NAME='completion-paths'
 
 CACHE_DIR_PATH="$LOCAL_WORKSPACE_RC_PATH/cache"
 CACHE_PROJECT_PATHS_PATH="$CACHE_DIR_PATH/project-paths"
-
-COMPLETION_DIR_PATH="$LOCAL_WORKSPACE_RC_PATH/completion"
-COMPLETION_SOURCE_PROJECTS_PATH="$COMPLETION_DIR_PATH/source-projects"
-COMPLETION_PROJECT_LIST_PATH="$COMPLETION_DIR_PATH/project-list"
+CACHE_COMPLETION_SOURCE_PATHS_PATH="$CACHE_DIR_PATH/completion-source-paths"
+CACHE_COMPLETION_PROJECT_NAMES_PATH="$CACHE_DIR_PATH/completion-project-names"
 
 
 STANDARD_ACTIONS=(status list git foreach open)
@@ -198,9 +194,9 @@ BASH_COMPLETION_SCRIPT=\
 
 _'"$SCRIPT_NAME"'_CONFIG_DIR_PATHS=('"${CONFIG_DIR_PATHS[@]}"')
 _'"$SCRIPT_NAME"'_CUSTOM_ACTIONS_FILE_NAME='"$CUSTOM_ACTIONS_FILE_NAME"'
-_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME='"$COMPLETION_SOURCES_PATTERNS_FILE_NAME"'
-_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS='"$COMPLETION_SOURCE_PROJECTS_PATH"'
-_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH='"$COMPLETION_PROJECT_LIST_PATH"'
+_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME='"$COMPLETION_PATH_FILTERS_FILE_NAME"'
+_'"$SCRIPT_NAME"'_CACHE_COMPLETION_SOURCE_PATHS_PATH='"$CACHE_COMPLETION_SOURCE_PATHS_PATH"'
+_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH='"$CACHE_COMPLETION_PROJECT_NAMES_PATH"'
 
 
 _'"$SCRIPT_NAME"'-config-path-for-file()
@@ -282,14 +278,14 @@ _'"$SCRIPT_NAME"'-branch-list()
 	local completion_source_patterns_path
 	completion_source_patterns_path=$(_'"$SCRIPT_NAME"'-config-path-for-file "$completion_source_patterns_file_name")
 
-	_'"$SCRIPT_NAME"'-cache-completion-sources "$completion_source_patterns_path" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS"
+	_'"$SCRIPT_NAME"'-cache-completion-sources "$completion_source_patterns_path" "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_SOURCE_PATHS_PATH"
 
 	local branches=()
 	local path
 	while read -r path
 	do
 		branches+=($(cd "$path"; $git_branch_command))
-	done < <(cat "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PROJECT_PATHS")
+	done < <(cat "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_SOURCE_PATHS_PATH")
 
 	local tokens=()
 	local branch
@@ -331,12 +327,12 @@ _'"$SCRIPT_NAME"'-completion()
 
 	if [ "$argument" == "--project" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "p"
 	then
-		if [ ! -r "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH" ]
+		if [ ! -r "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH" ]
 		then
 			return
 		fi
 
-		local projects=$(cat "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH")
+		local projects=$(cat "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH")
 		COMPREPLY=($(compgen -W "$projects" -- "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
@@ -344,7 +340,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--branch" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "B"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git rev-parse --abbrev-ref HEAD" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git rev-parse --abbrev-ref HEAD" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -357,7 +353,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "b"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -370,7 +366,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--remote-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "r"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/remotes/**" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/remotes/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -383,7 +379,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--all-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "a"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short)" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short)" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -394,12 +390,12 @@ _'"$SCRIPT_NAME"'-completion()
 	fi
 
 	local completion=""
-	if [ -r "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH" ]
+	if [ -r "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH" ]
 	then
-		completion+=$(cat "$_'"$SCRIPT_NAME"'_COMPLETION_PROJECT_LIST_PATH")
+		completion+=$(cat "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH")
 	fi
 
-	completion+=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_SOURCE_PATTERNS_FILE_NAME")
+	completion+=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 
 	COMPREPLY=($(compgen -W "$completion" -- "${COMP_WORDS[$COMP_CWORD]}"))
 }
@@ -1226,17 +1222,17 @@ cache-workspace-info()
 		return 1
 	fi
 
-	mkdir -p "$COMPLETION_DIR_PATH"
+	mkdir -p "$CACHE_DIR_PATH"
 	if [ $? != 0 ]
 	then
-		printf-error 'failed to create "%s" directory' "$COMPLETION_DIR_PATH"
+		printf-error 'failed to create "%s" directory' "$CACHE_DIR_PATH"
 		return 1
 	fi
 
 	cache-project-paths "$CACHE_PROJECT_PATHS_PATH" "$WORKSPACE_PATH"
 
 	local project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
-	cache-project-names "$COMPLETION_PROJECT_LIST_PATH" "${project_paths[@]}"
+	cache-project-names "$CACHE_COMPLETION_PROJECT_NAMES_PATH" "${project_paths[@]}"
 }
 
 
