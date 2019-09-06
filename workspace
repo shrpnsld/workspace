@@ -435,7 +435,7 @@ ABORT_OPEN_ACTION_EXIT_STATUS=66
 # Options
 
 OPTION_NEGATE_NEXT_PREDICATE=''
-OPTION_STRICT_NEXT_PATTERN=''
+OPTION_STRICT_NEXT_PATTERN=false
 OPTION_NON_DETACHED_HEAD=true
 
 
@@ -480,7 +480,7 @@ make-match-pattern()
 	local string=$1
 	local flag=$2
 
-	if [ -n "$flag" ]
+	if $flag
 	then
 		printf '%s\n' "$string"
 	else
@@ -1297,52 +1297,56 @@ parse-option()
 			;;
 
 		p|project)
-			local pattern=$(make-match-pattern "$value" "$OPTION_STRICT_NEXT_PATTERN")
+			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
 			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $WORKSPACE_PROJECT_NAME == '"$pattern"' ]]'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
-			OPTION_STRICT_NEXT_PATTERN=''
+			OPTION_STRICT_NEXT_PATTERN=false
 			return 1
 			;;
 
 		B|branch)
-			local pattern=$(make-match-pattern "$value" "$OPTION_STRICT_NEXT_PATTERN")
+			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
 			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $(git rev-parse --abbrev-ref HEAD) == '"$pattern"' ]]'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
-			OPTION_STRICT_NEXT_PATTERN=''
+			OPTION_STRICT_NEXT_PATTERN=false
 			return 1
 			;;
 
 		b|branches)
-			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/heads/**" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $(git for-each-ref --format="%(refname:short)" "refs/heads/**/'"$pattern"'") ]]'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
-			OPTION_STRICT_NEXT_PATTERN=''
+			OPTION_STRICT_NEXT_PATTERN=false
 			return 1
 			;;
 
 		r|remote-branches)
-			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/remotes/**" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $(git for-each-ref --format="%(refname:short)" "refs/remotes/**/'"$pattern"'") ]]'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
-			OPTION_STRICT_NEXT_PATTERN=''
+			OPTION_STRICT_NEXT_PATTERN=false
 			return 1
 			;;
 
 		a|all-branches)
-			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $(git for-each-ref --format="%(refname:short)") ]]'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
-			OPTION_STRICT_NEXT_PATTERN=''
+			OPTION_STRICT_NEXT_PATTERN=false
 			return 1
 			;;
 
 		t|tags)
-			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' (git for-each-ref --format="%(refname:short)" "refs/tags/**" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $value"')'
+			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $(git for-each-ref --format="%(refname:short)" "refs/tags/**/'"$pattern"'") ]]'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
-			OPTION_STRICT_NEXT_PATTERN=''
+			OPTION_STRICT_NEXT_PATTERN=false
 			return 1
 			;;
 
@@ -1354,7 +1358,7 @@ parse-option()
 			;;
 
 		s|strict)
-			OPTION_STRICT_NEXT_PATTERN='--line-regexp'
+			OPTION_STRICT_NEXT_PATTERN=true
 			;;
 
 		n|negate)
@@ -1645,11 +1649,11 @@ parse-parameters()
 		local parameter_type=$?
 		if [ $parameter_type == $PARAM_TYPE_STRING ]
 		then
-			local pattern=$(make-match-pattern "$parameter" "$OPTION_STRICT_NEXT_PATTERN")
-			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' ([[ $WORKSPACE_PROJECT_NAME == '"$pattern"' ]] || git for-each-ref --format="%(refname:short)" "refs/heads/**" | grep --fixed-strings '"$OPTION_STRICT_NEXT_PATTERN $parameter"')'
+			local pattern=$(make-match-pattern "$parameter" $OPTION_STRICT_NEXT_PATTERN)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $WORKSPACE_PROJECT_NAME == '"$pattern"' ]] || [[ $(git for-each-ref --format="%(refname:short)" "refs/heads/**/'"$pattern"'") ]]'
 
 			OPTION_NEGATE_NEXT_PREDICATE=''
-			OPTION_STRICT_NEXT_PATTERN=''
+			OPTION_STRICT_NEXT_PATTERN=false
 			continue
 		fi
 
