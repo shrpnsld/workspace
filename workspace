@@ -284,7 +284,14 @@ _'"$SCRIPT_NAME"'-branch-list()
 	local path
 	while read -r path
 	do
-		branches+=($(cd "$path"; $git_branch_command))
+		local branch
+		branch=$(cd "$path"; $git_branch_command 2> /dev/null)
+		if [ $? != 0 ]
+		then
+			continue
+		fi
+
+		branches+=("$branch")
 	done < <(cat "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_SOURCE_PATHS_PATH")
 
 	local tokens=()
@@ -340,7 +347,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--branch" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "B"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git rev-parse --abbrev-ref HEAD" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-branch-list "git symbolic-ref --short HEAD" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
