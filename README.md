@@ -64,7 +64,7 @@ $ workspace open -X -i -B feature
 ```bash
 $ # Open in Gnome Terminal tabs (-G)
 $ # projects that have 'engine' in their current project name (-p)
-$ workspace open -t -p engine
+$ workspace open -T -p engine
 $
 $ # Same, but in iTerm tabs (-I)
 $ workspace open -I -p engine
@@ -72,16 +72,16 @@ $ workspace open -I -p engine
 
 # Features
 
-* Uses only bash and standard command line utilities
 * Compatible with bash 3.x (works on macOS)
-* Supports compeltion for branch and project names
+* No external dependencies (uses only standard command line utilities)
+* Supports autocompeltion for branch and project names
 * Customizable (to some extend)
 * Free for all ([MIT license](LICENSE.txt))
 
 
 # Usage
 
-`workspace` has standard actions, that specify what to do with projects. Projects are filtered by name or git repository state (branch name, uncommited changes, detached HEAD).
+`workspace` has standard actions, that specify what to do with projects. Projects are filtered by name or git repository state (branch name, uncommited changes, detached HEAD, or custom predicate).
 
 ### Actions
 
@@ -96,7 +96,7 @@ $ workspace open -I -p engine
 `open` – open matched projects in shell (default), Apple Terminal, iTerm2, Gnome-Terminal tabs or tmux panels. When opening projects with bash, if you want to abort this action, you can exit with code 66. You can change this value with option `--abort-open-with <0..127>`.
 
 
-### Options
+### Predicates
 
 * `<pattern>` – catchall pattern for both project names and local branch names (can save a couple of keystrokes)
 * `-p`, `--project <pattern>` – project name pattern
@@ -104,32 +104,30 @@ $ workspace open -I -p engine
 * `-b`, `--branches <pattern>` – branch name pattern for local branches
 * `-r`, `--remote-branches <pattern>` – branch name pattern for remote branches
 * `-a`, `--all-branches <pattern>` – branch name pattern for all branches
-
-#
-
+* `-t`, `--tags <pattern>` – tag name pattern
 * `-s`, `--strict` – match next pattern strictly
-* `-S`, `--strict-all` – match all patterns strictly
-* `-n`, `--negate` – negate next pattern
-* `-N`, `--negate-all` – negate all patterns
-* `-u`, `--uncommited` – match projects with uncommited changes
-* `-d`, `--ignore-detached` – do not match projects with detached HEAD
+* `-P`, `--predicate <command>` – use command as a predicate
+* `-d`, `--detached` – match projects with detached HEAD
+* `-D`, `--detached-only` – match projects with only detached HEAD
+* `-n`, `--negate` – negate next predicate
+* `-u`, `--uncommited` – match projects with only uncommited changes
 
-#
+### Options
 
 * `-W`, `--workspace-path <path>` – search path [default: current directory]
-* `-t`, `--tabs` – open projects in current terminal tabs/panels (Apple terminal, Gnome terminal, iTerm, tmux)
+* `-T`, `--tabs` – open projects in current terminal tabs/panels (Apple terminal, Gnome terminal, iTerm, tmux)
 * `-G`, `--gnome-terminal` – open projects in Gnome terminal tabs
 * `-A`, `--apple-terminal` – open projects in macOS terminal tabs
 * `-I`, `--iterm` – open projects in iTerm tabs
 * `-X`, `--tmux` – open projects in tmux panels
 * `-i`, `--interactive` – ask to do your stuff with every matched project
 * `-g`, `--ignore-failed` – do not prompt to deal with error for failed commands in 'git' and 'foreach'
-* `--abort-open-with <0..127>` – abort 'open' action with exit status [default: 66]
 
 #
 
 ### Additional Options
 
+* `--abort-open-with <0..127>` – abort 'open' action with exit status [default: 66]
 * `--progress-bar` – show progress bar while searching projects
 * `--no-progress-bar` – do not show progress bar while searching projects
 * `--print-message <command>` – print message with command
@@ -214,13 +212,13 @@ specific-project
 
 # Completion
 
-There's a bash completion script, that you can install with `install-completion-script` action. It works for project and branch names when using options `-p`, `-B`, `-b`, `-r`, `-a`. On large amount of projects completion can be slow, so you can specify list of projects for completion script to track in the file `completion-sources`.
+There's a bash completion script, that you can install with `install-completion-script` action. It works for project and branch names when using options `-p`, `-B`, `-b`, `-r`, `-a`. On large amount of projects completion can be slow, so you can specify list of projects for completion script to track in the file `completion-paths`.
 
 
 
 # Custom actions
 
-Custom actions are stored in `custom-actions` file.
+Custom actions are stored in `custom-actions` file in configuration locations.
 
 The syntax for defining custom action is the following:
 
