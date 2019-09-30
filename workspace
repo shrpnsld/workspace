@@ -1106,6 +1106,7 @@ $standard_action_help$custom_action_help
   -b | --branches <pattern>         Branch name pattern for local branches.
   -r | --remote-branches <pattern>  Branch name pattern for remote branches.
   -a | --all-branches <pattern>     Branch name pattern for all branches.
+  -T | --tag <pattern>              Current tag name pattern.
   -t | --tags <pattern>             Tag name pattern.
   -s | --strict                     Match next pattern strictly.
   -P | --predicate <command>        Use shell command as a predicate.
@@ -1116,7 +1117,7 @@ $standard_action_help$custom_action_help
 
 \e[1mOPTIONS\e[0m
   -W | --workspace-path <path>      Search path [default: current directory].
-  -T | --tabs                       Open projects in current terminal tabs/panels.
+  -O | --tabs                       Open projects in current terminal tabs/panels.
   -A | --apple-terminal             Open projects in Apple terminal tabs.
   -G | --gnome-terminal             Open projects in Gnome terminal tabs.
   -I | --iterm                      Open projects in iTerm tabs.
@@ -1345,6 +1346,15 @@ parse-option()
 			return 1
 			;;
 
+		T|tag)
+			local pattern=$(make-match-pattern "$value" "$OPTION_STRICT_NEXT_PATTERN")
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $(git name-rev --name-only --tags --no-undefined HEAD 2>/dev/null | sed -n "s/^\([^^~]\{1,\}\)\(\^0\)\{0,1\}$/\1/p") == '"$pattern"' ]]'
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
+			OPTION_STRICT_NEXT_PATTERN=false
+			return 1
+			;;
+
 		t|tags)
 			local pattern=$(make-match-pattern "$value" $OPTION_STRICT_NEXT_PATTERN)
 			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE"' [[ $(git for-each-ref --format="%(refname:short)" "refs/tags/**/'"$pattern"'") ]]'
@@ -1382,7 +1392,7 @@ parse-option()
 			add-predicate '! git symbolic-ref --quiet HEAD'
 			;;
 
-		T|tabs)
+		O|tabs)
 			current-terminal-application
 			case $? in
 				$TERMINAL_APPLICATION_APPLE)
@@ -1724,7 +1734,7 @@ validate-options()
 		show-repositories-status|list-repositories)
 			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-apple-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
 			then
-				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" action'
+				printf-error '"-O", "--tabs", "-A", "--apple-terminal", "-G", "--gnome-terminal", "-I" or "--iterm" should be used with "open" action'
 				return 1
 			fi
 
@@ -1752,7 +1762,7 @@ validate-options()
 		foreach-project)
 			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-apple-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
 			then
-				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" action'
+				printf-error '"-O", "--tabs", "-A", "--apple-terminal", "-G", "--gnome-terminal", "-I" or "--iterm" should be used with "open" action'
 				return 1
 			fi
 
