@@ -64,7 +64,7 @@ $ workspace open -X -i -B feature
 ```bash
 $ # Open in Gnome Terminal tabs (-G)
 $ # projects that have 'engine' in their current project name (-p)
-$ workspace open -T -p engine
+$ workspace open -O -p engine
 $
 $ # Same, but in iTerm tabs (-I)
 $ workspace open -I -p engine
@@ -104,18 +104,22 @@ $ workspace open -I -p engine
 * `-b`, `--branches <pattern>` – branch name pattern for local branches
 * `-r`, `--remote-branches <pattern>` – branch name pattern for remote branches
 * `-a`, `--all-branches <pattern>` – branch name pattern for all branches
+* `-T`, `--tag <pattern>` – current tag name pattern
 * `-t`, `--tags <pattern>` – tag name pattern
 * `-s`, `--strict` – match next pattern strictly
-* `-P`, `--predicate <command>` – use command as a predicate
+* `-n`, `--negate` – negate next predicate
+* `-P`, `--predicate <command>` – use shell command as a predicate and availability of it's output as a result
+* `-N`, `--has-output <command>` – use command as a predicate
+* `-u`, `--uncommited` – match projects with uncommited changes
+* `-U`, `--untracked` – match projects untracked files
 * `-d`, `--detached` – match projects with detached HEAD
 * `-D`, `--detached-only` – match projects with only detached HEAD
-* `-n`, `--negate` – negate next predicate
-* `-u`, `--uncommited` – match projects with only uncommited changes
+
 
 ### Options
 
 * `-W`, `--workspace-path <path>` – search path [default: current directory]
-* `-T`, `--tabs` – open projects in current terminal tabs/panels (Apple terminal, Gnome terminal, iTerm, tmux)
+* `-O`, `--tabs` – open projects in current terminal tabs/panels (Apple terminal, Gnome terminal, iTerm, tmux)
 * `-G`, `--gnome-terminal` – open projects in Gnome terminal tabs
 * `-A`, `--apple-terminal` – open projects in macOS terminal tabs
 * `-I`, `--iterm` – open projects in iTerm tabs
