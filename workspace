@@ -183,7 +183,7 @@ CACHE_COMPLETION_SOURCE_PATHS_PATH="$CACHE_DIR_PATH/completion-source-paths"
 CACHE_COMPLETION_PROJECT_NAMES_PATH="$CACHE_DIR_PATH/completion-project-names"
 
 
-STANDARD_ACTIONS=(status list git foreach open)
+STANDARD_ACTIONS=(status list open)
 STANDARD_ACTIONS_DESCRIPTIONS=('show git status for projects' 'list projects' 'run git command for each project' 'run command for each project' 'open projects in shell (default), terminal tabs or tmux panels')
 ADDITIONAL_ACTIONS=(cache-workspace-info install-completion-script)
 
@@ -1095,6 +1095,7 @@ show-help()
 	printf \
 "\e[1mUSAGE\e[0m
   $SCRIPT_NAME <action> [<options>...]
+  $SCRIPT_NAME [<options>...] -- <command> <arguments>...
 
 \e[1mACTIONS\e[0m
 $standard_action_help$custom_action_help
@@ -1624,16 +1625,8 @@ parse-action()
 			PERFORM_ACTION_FUNCTION=open-projects
 			;;
 
-		git)
-			PERFORM_ACTION_FUNCTION=foreach-project
-			FOREACH_ARGUMENTS=(git)
-			;;
-
-		foreach)
-			PERFORM_ACTION_FUNCTION=foreach-project
-			;;
-
 		*)
+			PERFORM_ACTION_FUNCTION=foreach-project
 			return $PARSE_ACTION_UNKNOWN_ACTION
 			;;
 	esac
@@ -1727,10 +1720,8 @@ parse-parameters()
 
 validate-options()
 {
-	local action=$1
-
-	case $action in
-		status|list)
+	case "$PERFORM_ACTION_FUNCTION" in
+		show-repositories-status|list-repositories)
 			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-apple-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
 			then
 				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" action'
@@ -1750,7 +1741,7 @@ validate-options()
 			fi
 			;;
 
-		open)
+		open-projects)
 			if [ "$DEAL_WITH_FAILED_COMMAND_FUNCTION" == 'nothing' ]
 			then
 				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" action'
@@ -1758,10 +1749,16 @@ validate-options()
 			fi
 			;;
 
-		git|foreach)
+		foreach-project)
 			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-apple-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
 			then
 				printf-error '"-t", "--tabs", "--apple-terminal", "--gnome-terminal" or "--iterm" should be used with "open" action'
+				return 1
+			fi
+
+			if [ "${#FOREACH_ARGUMENTS[@]}" == 0 ]
+			then
+				printf-error 'no command specified for "foreach" action'
 				return 1
 			fi
 			;;
@@ -1874,20 +1871,17 @@ fi
 #
 # Parameters
 
-action=$1
-
-parse-action "$action"
+parse-action $1
 retval=$?
-if [ $retval == $PARSE_ACTION_UNKNOWN_ACTION ]
+if [ $retval != $PARSE_ACTION_UNKNOWN_ACTION ]
 then
-	printf-error 'unknown action "%s"' "$action"
-	exit 1
+	shift
 fi
 
 eval 'for option in '"${CUSTOM_ACTIONS_OPTIONS[$retval]}"'; do custom_action_options+=("$option"); done'
-all_parameters=("${custom_action_options[@]}" "${@:2}")
+all_parameters=("${custom_action_options[@]}" "$@")
 
-parse-parameters "${all_parameters[@]}" && validate-options "$action"
+parse-parameters "${all_parameters[@]}" && validate-options
 if [ $? != 0 ]
 then
 	exit 1
