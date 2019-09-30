@@ -1405,6 +1405,13 @@ parse-option()
 			return 1
 			;;
 
+		N|has-output)
+			add-predicate "$OPTION_NEGATE_NEXT_PREDICATE [[ \$($value) ]]"
+
+			OPTION_NEGATE_NEXT_PREDICATE=''
+			return 1
+			;;
+
 		s|strict)
 			OPTION_STRICT_NEXT_PATTERN=true
 			;;
