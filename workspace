@@ -270,7 +270,7 @@ _'"$SCRIPT_NAME"'-cache-completion-sources()
 }
 
 
-_'"$SCRIPT_NAME"'-branch-list()
+_'"$SCRIPT_NAME"'-list()
 {
 	local git_branch_command=$1
 	local completion_source_patterns_file_name=$2
@@ -347,7 +347,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--branch" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "B"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git symbolic-ref --short HEAD" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-list "git symbolic-ref --short HEAD" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -360,7 +360,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "b"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -373,7 +373,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--remote-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "r"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/remotes/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/remotes/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -386,7 +386,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--all-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "a"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short)" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short)" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -396,13 +396,47 @@ _'"$SCRIPT_NAME"'-completion()
 		return
 	fi
 
+	if [ "$argument" == "--tag" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "T"
+	then
+		local tags
+
+		COMPREPLY=($(compgen -W "$tags" -- "${COMP_WORDS[$COMP_CWORD]}"))
+		return
+	fi
+
+	if [ "$argument" == "--tag" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "T"
+	then
+		local tags
+		tags=$(_'"$SCRIPT_NAME"'-list "git name-rev --name-only --tags --no-undefined HEAD 2>/dev/null | sed -n '"'"'s/^\([^^~]\{1,\}\)\(\^0\)\{0,1\}$/\1/p'"'"'" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		if [ $? != 0 ]
+		then
+			return
+		fi
+
+		COMPREPLY=($(compgen -W "$tags" -- "${COMP_WORDS[$COMP_CWORD]}"))
+		return
+	fi
+
+	if [ "$argument" == "--tags" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "t"
+	then
+		local tags
+		tags=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/tags/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		if [ $? != 0 ]
+		then
+			return
+		fi
+
+		COMPREPLY=($(compgen -W "$tags" -- "${COMP_WORDS[$COMP_CWORD]}"))
+		return
+	fi
+
 	local completion=""
 	if [ -r "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH" ]
 	then
 		completion+=$(cat "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH")
 	fi
 
-	completion+=$(_'"$SCRIPT_NAME"'-branch-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+	completion+=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 
 	COMPREPLY=($(compgen -W "$completion" -- "${COMP_WORDS[$COMP_CWORD]}"))
 }
