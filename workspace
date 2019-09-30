@@ -1143,11 +1143,13 @@ $standard_action_help$custom_action_help
   -T | --tag <pattern>              Current tag name pattern.
   -t | --tags <pattern>             Tag name pattern.
   -s | --strict                     Match next pattern strictly.
-  -P | --predicate <command>        Use shell command as a predicate.
+  -n | --negate                     Negate next pattern.
+  -P | --predicate <command>        Use shell command as a predicate and it's return value as a result.
+  -N | --has-output <command>       Use shell command as a predicate and availability of it's output as a result.
+  -u | --uncommited                 Match projects with uncommited changes.
+  -U | --untracked                  Match projects with untracked files.
   -d | --detached                   Match projects with detached HEAD.
   -D | --detached-only              Match only projects with detached HEAD.
-  -n | --negate                     Negate next predicate.
-  -u | --uncommited                 Match only projects with uncommited changes.
 
 \e[1mOPTIONS\e[0m
   -W | --workspace-path <path>      Search path [default: current directory].
