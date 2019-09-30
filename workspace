@@ -890,7 +890,7 @@ list-repositories()
 	for path in "${repository_paths[@]}"
 	do
 		local project_name=$(basename "$path")
-		local head=$(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE rev-parse --abbrev-ref HEAD)
+		local head=$(cd "$path"; git branch | grep '^\*' | cut -d ' ' -f2-)
 		printf "$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END"' ['"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END"'] %s\n' "$project_name" "$head" ".${path#$PWD}"
 	done
 	printf '\n'
@@ -904,7 +904,7 @@ start-shell()
 	local path
 	for path in "${project_paths[@]}"
 	do
-		if ! prompt-user-to-select-project "$path" 'Open this repository? (y/n)'
+		if ! prompt-user-to-select-project "$path" 'Open this repository? (y/n) '
 		then
 			continue
 		fi
