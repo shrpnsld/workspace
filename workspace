@@ -1424,6 +1424,10 @@ parse-option()
 			add-predicate '! git diff-index --quiet HEAD --'
 			;;
 
+		U|untracked)
+			add-predicate '[[ $(git ls-files . --exclude-standard --others) ]]'
+			;;
+
 		d|detached)
 			OPTION_NON_DETACHED_HEAD=false
 			;;
