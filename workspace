@@ -1195,6 +1195,10 @@ $standard_action_help$custom_action_help
 
 \e[1mADDITIONAL ACTIONS\e[0m
   install-completion-script  Install bash completion script for project and branch names.
+      <path>                   Path with shell completion scripts. Optional. [default: $COMPLETION_SCRIPT_INSTALL_PATH].
+      --split-project-names    Split project names into tokens.
+      --split-branch-names     Split branch names into tokens.
+
   cache-workspace-info       Update project paths cache.
 
 \e[1mMore information at \e[mhttps://github.com/shrpnsld/workspace\e[0m
@@ -1260,7 +1264,13 @@ pick-project-and-perform-action()
 
 install-completion-script()
 {
-	local bash_completion_dir='/etc/bash_completion.d/'
+	local bash_completion_dir="${FOREACH_ARGUMENTS[0]}"
+
+	if [ -z "$bash_completion_dir" ]
+	then
+		local bash_completion_dir="$COMPLETION_SCRIPT_INSTALL_PATH"
+	fi
+
 	if ! [ -w "$bash_completion_dir" ]
 	then
 		printf-error 'permission denied'
@@ -1644,6 +1654,14 @@ parse-option()
 			return 1
 			;;
 
+		split-project-names)
+			OPTION_SPLIT_PROJECT_NAMES=''
+			;;
+
+		split-branch-names)
+			OPTION_SPLIT_BRANCH_NAMES=''
+			;;
+
 		*)
 			return $PARSE_OPTION_UNKNOWN_OPTION
 			;;
@@ -1852,6 +1870,22 @@ validate-options()
 			fi
 			;;
 	esac
+
+	if [ "$DO_JOB_FUNCTION" == 'install-completion-script' ]
+	then
+		local bash_completion_path="${FOREACH_ARGUMENTS[0]}"
+		if [ -n "$bash_completion_path" ] && ! [ -d "$bash_completion_path" ]
+		then
+			printf-error 'can'"'"'t access path "%s"' "$bash_completion_path"
+			return 1
+		fi
+	else
+		if [ -z $OPTION_SPLIT_PROJECT_NAMES ] || [ -z $OPTION_SPLIT_BRANCH_NAMES ]
+		then
+			printf-error '"--split-project-names" or "--split-branch-names" options should be used with "install-completion-script" action'
+			return 1
+		fi
+	fi
 
 	if [ -n "$WORKSPACE_PATH" ] && [ ! -d "$WORKSPACE_PATH" ]
 	then
