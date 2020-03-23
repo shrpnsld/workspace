@@ -824,7 +824,7 @@ cache-project-paths()
 
 			# removing quotes, so they are not part of the pattern
 			ignore_pattern_options+=('!' '-path' "${pattern:1:${#pattern}-2}")
-		done < <(grep --extended-regexp --invert-match --regexp '^#' --regexp '^\s[ \t]*$' "$config_ignore_path" | sed --expression 's/^/"/' --expression 's/$/"/') # quoting patterns to prevent asterisk expansion
+		done < <(grep --extended-regexp --invert-match --regexp '^#' --regexp '^\s[ \t]*$' "$config_ignore_path" | sed -e 's/^/"/' -e 's/$/"/') # quoting patterns to prevent asterisk expansion
 	fi
 
 	# collect paths
