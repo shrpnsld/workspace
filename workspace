@@ -731,7 +731,7 @@ repository-status-pretty()
 	local path=$1
 
 	local project_name=$(basename "$path")
-	printf "$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END"'\n' "$project_name"
+	printf "$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END"' -- %s\n' "$project_name" "$path"
 	(cd "$path"; git $OPTIONAL_OUTPUT_GIT_STYLE status "${FOREACH_ARGUMENTS[@]}")
 }
 
@@ -902,7 +902,7 @@ list-repositories()
 	do
 		local project_name=$(basename "$path")
 		local head=$(cd "$path"; git branch | grep '^\*' | cut -d ' ' -f2-)
-		printf "$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END"' ['"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END"'] %s\n' "$project_name" "$head" ".${path#$PWD}"
+		printf "$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_PROJECT_NAME_STYLE_END"' ['"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_BEGIN"'%s'"$OPTIONAL_OUTPUT_BRANCH_NAME_STYLE_END"'] %s\n' "$project_name" "$head" "$path"
 	done
 	printf '\n'
 }
