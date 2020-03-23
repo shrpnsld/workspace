@@ -231,8 +231,10 @@ ABORT_OPEN_ACTION_EXIT_STATUS=66
 BASH_COMPLETION_SCRIPT=\
 '#!/bin/bash
 
+_'"$SCRIPT_NAME"'_LOCAL_DIR_PATH='"$LOCAL_WORKSPACE_RC_PATH"'
 _'"$SCRIPT_NAME"'_CONFIG_DIR_PATHS=('"${CONFIG_DIR_PATHS[@]}"')
 _'"$SCRIPT_NAME"'_CUSTOM_ACTIONS_FILE_NAME='"$CUSTOM_ACTIONS_FILE_NAME"'
+_'"$SCRIPT_NAME"'_CACHE_PROJECT_PATHS_PATH='"$CACHE_PROJECT_PATHS_PATH"'
 _'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME='"$COMPLETION_PATH_FILTERS_FILE_NAME"'
 _'"$SCRIPT_NAME"'_CACHE_COMPLETION_SOURCE_PATHS_PATH='"$CACHE_COMPLETION_SOURCE_PATHS_PATH"'
 _'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH='"$CACHE_COMPLETION_PROJECT_NAMES_PATH"'
@@ -265,47 +267,106 @@ _'"$SCRIPT_NAME"'-is-short-option()
 }
 
 
-_'"$SCRIPT_NAME"'-cache-completion-sources()
+_workspace-split-into-tokens()
 {
-	local completion_source_patterns_path=$1
+	local delimiters=$1
+	local strings=("${@:2}")
+	echo "${#strings[@]}"
+
+	local string
+	for string in "${strings[@]}"
+	do
+		local tokens
+		IFS="$delimiters" read -ra tokens <<< "$string"
+		printf "%s\n" "${tokens[@]}"
+	done
+}
+
+
+_'"$SCRIPT_NAME"'-cache-project-names()
+{
+	local project_paths_path=$1
 	local cache_path=$2
 
-	if [ -r "$completion_source_patterns_path" ] && [ "$cache_path" -nt "$completion_source_patterns_path" ]
+	if [ "$project_paths_path" -ot "$cache_path" ] && [ "${BASH_SOURCE[0]}" -ot "$cache_path" ]
 	then
 		return
 	fi
 
-	if [ -r "$completion_source_patterns_path" ] && [ "$cache_path" -ot "$completion_source_patterns_path" ]
-	then
-		local path_pattern_options=()
-		local pattern
-		while read -r pattern
-		do
-			if [ ${#path_pattern_options[@]} == 0 ]
-			then
-				path_pattern_options+=("(")
-			else
-				path_pattern_options+=("-or")
-			fi
-
-			path_pattern_options+=("-path" "${pattern:1:${#pattern}-2}")
-		done < <(grep --extended-regexp --invert-match --regexp "^#" --regexp "^[ \t]*$" "$completion_source_patterns_path" | sed --expression "s/^/\"/" --expression "s/$/\"/")
-
-		if [ "${#path_pattern_options[@]}" \> 0 ]
-		then
-			path_pattern_options+=(")")
-		fi
-	fi
-
-	local git_dirs=($(find . "${path_pattern_options[@]}" -type d -name ".git"))
-	local project_paths=()
-	local git_dir
-	for git_dir in "${git_dirs[@]}"
+	local project_list=()
+	local project_paths=($(cat "$project_paths_path"))
+	local project_path
+	for project_path in "${project_paths[@]}"
 	do
-		project_paths+=("$(dirname "$git_dir")")
+		local project_name=$(basename "$project_path")
+		project_list+=("$project_name")
 	done
 
-	printf "%s\n" "${project_paths[@]}" > "$cache_path"
+	'"$OPTION_SPLIT_PROJECT_NAMES"'project_list+=(_workspace-split-into-tokens ".-_ " "${project_list[@]}")
+
+	printf "%s\n" "${project_list[@]}" | sort | uniq > "$cache_path"
+}
+
+
+_'"$SCRIPT_NAME"'-project-list()
+{
+	local project_paths_path=$1
+
+	if [ ! -r "$project_paths_path" ]
+	then
+		return
+	fi
+
+	_'"$SCRIPT_NAME"'-cache-project-names "$project_paths_path" "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH"
+	cat "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH"
+}
+
+
+_'"$SCRIPT_NAME"'-cache-completion-sources()
+{
+	local project_paths_path=$1
+	local completion_source_patterns_path=$2
+	local cache_path=$3
+
+	if [ ! -r "$project_paths_path" ]
+	then
+		return
+	fi
+
+	if [ ! -r "$completion_source_patterns_path" ]
+	then
+		cp "$project_paths_path" "$cache_path"
+		return
+	fi
+
+	if [ "$cache_path" -nt "$project_paths_path" ] && [ "$cache_path" -nt "$completion_source_patterns_path" ]
+	then
+		return
+	fi
+
+	local completion_sources_patterns=()
+	local pattern
+	while read pattern
+	do
+		completion_sources_patterns+=("$pattern")
+	done < "$completion_source_patterns_path"
+
+	local project_paths=($(cat "$project_paths_path"))
+	local completion_sources=()
+	local path
+	for path in "${project_paths[@]}"
+	do
+		for pattern in "${completion_sources_patterns[@]}"
+		do
+			if [[ $path == $pattern ]]
+			then
+				completion_sources+=("$path")
+				break
+			fi
+		done
+	done
+
+	printf "%s\n" "${completion_sources[@]}" > "$cache_path"
 }
 
 
@@ -333,16 +394,7 @@ _'"$SCRIPT_NAME"'-list()
 		branches+=("$branch")
 	done < <(cat "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_SOURCE_PATHS_PATH")
 
-	local tokens=()
-	local branch
-	for branch in "${branches[@]}"
-	do
-		local components
-		IFS="/" read -ra components <<< "$branch"
-
-		tokens+=("${components[@]}")
-	done
-	branches+=("${tokens[@]}")
+	'"$OPTION_SPLIT_BRANCH_NAMES"'branches+=(_workspace-split-into-tokens "/" "${branches[@]}")
 
 	printf "%s\n" "${branches[@]}" | sort | uniq
 }
@@ -369,16 +421,16 @@ _'"$SCRIPT_NAME"'-completion()
 		return
 	fi
 
+	if [ ! -d "$_'"$SCRIPT_NAME"'_LOCAL_DIR_PATH" ]
+	then
+		return
+	fi
+
 	local argument="${COMP_WORDS[$COMP_CWORD-1]}"
 
 	if [ "$argument" == "--project" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "p"
 	then
-		if [ ! -r "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH" ]
-		then
-			return
-		fi
-
-		local projects=$(cat "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH")
+		local projects=$(_workspace-project-list "$_'"$SCRIPT_NAME"'_CACHE_PROJECT_PATHS_PATH")
 		COMPREPLY=($(compgen -W "$projects" -- "${COMP_WORDS[$COMP_CWORD]}"))
 		return
 	fi
@@ -386,7 +438,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--branch" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "B"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-list "git symbolic-ref --short HEAD" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-list "git symbolic-ref --short HEAD" "$_'"$SCRIPT_NAME"'_CACHE_PROJECT_PATHS_PATH" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -399,7 +451,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "b"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_CACHE_PROJECT_PATHS_PATH" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -412,7 +464,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--remote-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "r"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/remotes/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/remotes/**" "$_'"$SCRIPT_NAME"'_CACHE_PROJECT_PATHS_PATH" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -425,7 +477,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--all-branches" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "a"
 	then
 		local branches
-		branches=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short)" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		branches=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short)" "$_'"$SCRIPT_NAME"'_CACHE_PROJECT_PATHS_PATH" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -446,7 +498,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--tag" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "T"
 	then
 		local tags
-		tags=$(_'"$SCRIPT_NAME"'-list "git name-rev --name-only --tags --no-undefined HEAD 2>/dev/null | sed -n '"'"'s/^\([^^~]\{1,\}\)\(\^0\)\{0,1\}$/\1/p'"'"'" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		tags=$(_'"$SCRIPT_NAME"'-list "git name-rev --name-only --tags --no-undefined HEAD 2>/dev/null | sed -n '"'"'s/^\([^^~]\{1,\}\)\(\^0\)\{0,1\}$/\1/p'"'"'" "$_'"$SCRIPT_NAME"'_CACHE_PROJECT_PATHS_PATH" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -459,7 +511,7 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ "$argument" == "--tags" ] || _'"$SCRIPT_NAME"'-is-short-option "$argument" "t"
 	then
 		local tags
-		tags=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/tags/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+		tags=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/tags/**" "$_'"$SCRIPT_NAME"'_CACHE_PROJECT_PATHS_PATH" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 		if [ $? != 0 ]
 		then
 			return
@@ -473,9 +525,10 @@ _'"$SCRIPT_NAME"'-completion()
 	if [ -r "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH" ]
 	then
 		completion+=$(cat "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_PROJECT_NAMES_PATH")
+		completion+=$'"'\n'"'
 	fi
 
-	completion+=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
+	completion+=$(_'"$SCRIPT_NAME"'-list "git for-each-ref --format=%(refname:short) refs/heads/**" "$_'"$SCRIPT_NAME"'_CACHE_PROJECT_PATHS_PATH" "$_'"$SCRIPT_NAME"'_COMPLETION_PATH_FILTERS_FILE_NAME")
 
 	COMPREPLY=($(compgen -W "$completion" -- "${COMP_WORDS[$COMP_CWORD]}"))
 }
@@ -833,39 +886,12 @@ cache-project-paths()
 	local git_dir
 	for git_dir in "${git_dirs[@]}"
 	do
-		project_paths+=("$(dirname "$git_dir")")
+		local relative_git_dir="${git_dir#$PWD/}"
+		project_path="${relative_git_dir%.git}"
+		project_paths+=("$project_path")
 	done
 
 	printf '%s\n' "${project_paths[@]}" > "$cache_path"
-}
-
-
-cache-project-names()
-{
-	local cache_path=$1
-	local project_paths=("${@:2}")
-
-	# collect project names
-	local project_list=()
-	local project_path
-	for project_path in "${project_paths[@]}"
-	do
-		local project_name=$(basename "$project_path")
-		project_list+=("$project_name")
-	done
-
-	# split project names into tokens and store them with project names
-	local parts=()
-	local project_name
-	for project_name in "${project_list[@]}"
-	do
-		local tokens
-		IFS='.-_ ' read -ra tokens <<< "$project_name"
-		parts+=("${tokens[@]}")
-	done
-	project_list+=("${parts[@]}")
-
-	printf '%s\n' "${project_list[@]}" | sort | uniq > "$cache_path"
 }
 
 
@@ -1299,9 +1325,6 @@ cache-workspace-info()
 	fi
 
 	cache-project-paths "$CACHE_PROJECT_PATHS_PATH" "$WORKSPACE_PATH"
-
-	local project_paths=($(cat "$CACHE_PROJECT_PATHS_PATH"))
-	cache-project-names "$CACHE_COMPLETION_PROJECT_NAMES_PATH" "${project_paths[@]}"
 }
 
 
