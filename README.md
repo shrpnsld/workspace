@@ -37,7 +37,7 @@ $     git checkout feature/some '&&' git merge master
 ```
 
 ```bash
-$ # Open in bash every project that has 'engine' in it's name (-p)
+$ # Open in bash every project that has 'engine' in its name (-p)
 $ workspace open -p engine
 ```
 
@@ -54,7 +54,7 @@ But, if you don't want to dive deep into yet another utility, just copy-paste (a
 
 ```bash
 $ # Ask (-i) to open in Gnome Terminal tabs (-A)
-$ # every project that has 'feature' in it's current branch name (-B)
+$ # every project that has 'feature' in its current branch name (-B)
 $ workspace open -A -i -B feature
 $
 $ # Same, but in tmux panels (-X)
@@ -108,8 +108,8 @@ $ workspace open -I -p engine
 * `-t`, `--tags <pattern>` – tag name pattern
 * `-s`, `--strict` – match next pattern strictly
 * `-n`, `--negate` – negate next predicate
-* `-P`, `--predicate <command>` – use shell command as a predicate and availability of it's output as a result
-* `-N`, `--has-output <command>` – use command as a predicate
+* `-P`, `--predicate <command>` – use shell command as a predicate and its return value as a result
+* `-N`, `--has-output <command>` – use shell command as a predicate and availability of its output as a result
 * `-u`, `--uncommited` – match projects with uncommited changes
 * `-U`, `--untracked` – match projects untracked files
 * `-d`, `--detached` – match projects with detached HEAD

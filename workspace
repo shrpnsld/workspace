@@ -1186,8 +1186,8 @@ $standard_action_help$custom_action_help
   -t | --tags <pattern>             Tag name pattern.
   -s | --strict                     Match next pattern strictly.
   -n | --negate                     Negate next pattern.
-  -P | --predicate <command>        Use shell command as a predicate and it's return value as a result.
-  -N | --has-output <command>       Use shell command as a predicate and availability of it's output as a result.
+  -P | --predicate <command>        Use shell command as a predicate and its return value as a result.
+  -N | --has-output <command>       Use shell command as a predicate and availability of its output as a result.
   -u | --uncommited                 Match projects with uncommited changes.
   -U | --untracked                  Match projects with untracked files.
   -d | --detached                   Match projects with detached HEAD.
