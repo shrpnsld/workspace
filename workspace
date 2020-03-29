@@ -1751,6 +1751,7 @@ parse-action()
 }
 
 
+# TODO: pick better name, since it also uses to parse implicit arguments
 parse-parameters-for-project-actions()
 {
 	local parameters=("$@")
@@ -2006,7 +2007,7 @@ then
 	done < <(grep --extended-regexp --invert-match --regexp '^#' --regexp '^\s[ \t]*$' "$implicit_arguments_path")
 fi
 
-parse-parameters "$DO_JOB_FUNCTION" "${implicit_arguments[@]}"
+parse-parameters-for-project-actions "${implicit_arguments[@]}"
 
 
 #
