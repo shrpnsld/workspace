@@ -373,12 +373,18 @@ _'"$SCRIPT_NAME"'-cache-completion-sources()
 _'"$SCRIPT_NAME"'-list()
 {
 	local git_branch_command=$1
-	local completion_source_patterns_file_name=$2
+	local project_paths_path=$2
+	local completion_source_patterns_file_name=$3
+
+	if [ ! -r "$project_paths_path" ]
+	then
+		return
+	fi
 
 	local completion_source_patterns_path
 	completion_source_patterns_path=$(_'"$SCRIPT_NAME"'-config-path-for-file "$completion_source_patterns_file_name")
 
-	_'"$SCRIPT_NAME"'-cache-completion-sources "$completion_source_patterns_path" "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_SOURCE_PATHS_PATH"
+	_'"$SCRIPT_NAME"'-cache-completion-sources "$project_paths_path" "$completion_source_patterns_path" "$_'"$SCRIPT_NAME"'_CACHE_COMPLETION_SOURCE_PATHS_PATH"
 
 	local branches=()
 	local path
