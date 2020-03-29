@@ -271,7 +271,6 @@ _workspace-split-into-tokens()
 {
 	local delimiters=$1
 	local strings=("${@:2}")
-	echo "${#strings[@]}"
 
 	local string
 	for string in "${strings[@]}"
