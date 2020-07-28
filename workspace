@@ -202,8 +202,8 @@ CACHE_COMPLETION_SOURCE_PATHS_PATH="$CACHE_DIR_PATH/completion-source-paths"
 CACHE_COMPLETION_PROJECT_NAMES_PATH="$CACHE_DIR_PATH/completion-project-names"
 
 
-STANDARD_ACTIONS=(status list open)
-STANDARD_ACTIONS_DESCRIPTIONS=('show git status for projects' 'list projects' 'run git command for each project' 'run command for each project' 'open projects in shell (default), terminal tabs or tmux panels')
+STANDARD_ACTIONS=(status list open '<empty>')
+STANDARD_ACTIONS_DESCRIPTIONS=('show git status for projects' 'list projects' 'open projects in shell (default), terminal tabs or tmux panels' '(no action name) run command for each project')
 ADDITIONAL_ACTIONS=(cache-workspace-info install-completion-script)
 
 ALL_ACTIONS=("${STANDARD_ACTIONS[@]}" "${ADDITIONAL_ACTIONS[@]}")

@@ -16,23 +16,23 @@ $ workspace status -B feature
 
 ```bash
 $ # Show diff in every project with uncommited changes (-u)
-$ workspace git -u -- diff
+$ workspace -u -- git diff
 $
 $ # Ask (-i) to stash changes
 $ # in every project with uncommited changes (-u)
-$ workspace git -i -u -- stash
+$ workspace -i -u -- git stash
 ```
 
 ```bash
 $ # In every project that has branch 'master' (-s -b)
 $ # checkout branch 'master' and pull changes
-$ workspace foreach -s -b master -- \
+$ workspace -s -b master -- \
 $     git checkout master '&&' git pull
 $
 $ # and then...
 $ # In every project that has branch 'feature/some' (-s -b)
 $ # checkout branch 'feature/some' and merge it with branch 'master'
-$ workspace foreach -s -b feature/some -- \
+$ workspace -s -b feature/some -- \
 $     git checkout feature/some '&&' git merge master
 ```
 
@@ -44,7 +44,7 @@ $ workspace open -p engine
 ```bash
 $ # You can also type pattern with no additional options (just to save keystrokes),
 $ # and script will match your pattern with both project names and branch names
-$ workspace git feature/some -- push
+$ workspace -- feature/some -- git push
 $ workspace open engine
 ```
 
@@ -89,11 +89,9 @@ $ workspace open -I -p engine
 
 `list` – list project names and paths.
 
-`git` – run git command for each matched project. Git command should be separeted with `--`.
-
-`foreach` – run command for each matched project. Command should be separeted with `--`.
-
 `open` – open matched projects in shell (default), Apple Terminal, iTerm2, Gnome-Terminal tabs or tmux panels. When opening projects with bash, if you want to abort this action, you can exit with code 66. You can change this value with option `--abort-open-with <0..127>`.
+
+`` (name not specified) – run command for each matched project. Command should be separeted with `--`.
 
 
 ### Predicates
@@ -120,12 +118,12 @@ $ workspace open -I -p engine
 
 * `-W`, `--workspace-path <path>` – search path [default: current directory]
 * `-O`, `--tabs` – open projects in current terminal tabs/panels (Apple terminal, Gnome terminal, iTerm, tmux)
-* `-G`, `--gnome-terminal` – open projects in Gnome terminal tabs
 * `-A`, `--apple-terminal` – open projects in macOS terminal tabs
+* `-G`, `--gnome-terminal` – open projects in Gnome terminal tabs
 * `-I`, `--iterm` – open projects in iTerm tabs
 * `-X`, `--tmux` – open projects in tmux panels
 * `-i`, `--interactive` – ask to do your stuff with every matched project
-* `-g`, `--ignore-failed` – do not prompt to deal with error for failed commands in 'git' and 'foreach'
+* `-g`, `--ignore-failed` – do not prompt to deal with error for failed commands in 'for each'
 
 #
 
@@ -170,9 +168,9 @@ Project name is considered to be the name of the folder that is parent to `.git`
 
 If no `-s` or `-S` option is set, then `<pattern>` is searched as a part of a project/branch name.
 
-Use quotes for `|`, `;`, `&&` and `||` inside `<commands>` for `foreach`.
+Use quotes for `|`, `;`, `&&` and `||` inside `<commands>` for `for each`.
 
-If any `<command>` in `git` or `foreach` failes during run, the script will prompt to open that project in shell, so you can deal with issue and run your command manually.
+If any `<command>` in `for each` failes during run, the script will prompt to open that project in shell, so you can deal with issue and run your command manually.
 
 
 
