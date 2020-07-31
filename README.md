@@ -156,7 +156,7 @@ $ workspace open -I -p engine
 
 * `install-completion-script` – install bash completion script for project and branch names
 
-	* `<path>` – path with shell completion scripts. Optional. Default: `/etc/bash_completion.d/`
+	* `--path` – path with shell completion scripts. Optional. Default: `/etc/bash_completion.d/`
 	* `--split-project-names` – split project names into tokens.
  	* `--split-project-names` – split branch names into tokens.
 

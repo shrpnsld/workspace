@@ -44,6 +44,7 @@ OPTION_STRICT_NEXT_PATTERN=false
 OPTION_NON_DETACHED_HEAD=true
 OPTION_SPLIT_PROJECT_NAMES='#'
 OPTION_SPLIT_BRANCH_NAMES='#'
+OPTION_COMPLETION_SCRIPT_INSTALL_PATH='/etc/bash_completion.d/'
 
 
 #
@@ -182,8 +183,6 @@ CURRENT_SHELL=$(current-shell)
 
 #
 # Constants
-
-COMPLETION_SCRIPT_INSTALL_PATH='/etc/bash_completion.d/'
 
 WORKSPACE_PATH="$PWD"
 
@@ -1227,7 +1226,7 @@ $standard_action_help$custom_action_help
 
 \e[1mADDITIONAL ACTIONS\e[0m
   install-completion-script  Install bash completion script for project and branch names.
-      <path>                   Path with shell completion scripts. Optional. [default: $COMPLETION_SCRIPT_INSTALL_PATH].
+      --path                   Path with shell completion scripts. Optional. [default: $OPTION_COMPLETION_SCRIPT_INSTALL_PATH].
       --split-project-names    Split project names into tokens.
       --split-branch-names     Split branch names into tokens.
 
@@ -1296,20 +1295,13 @@ pick-project-and-perform-action()
 
 install-completion-script()
 {
-	local bash_completion_dir="${FOREACH_ARGUMENTS[0]}"
-
-	if [ -z "$bash_completion_dir" ]
-	then
-		local bash_completion_dir="$COMPLETION_SCRIPT_INSTALL_PATH"
-	fi
-
-	if ! [ -w "$bash_completion_dir" ]
+	if ! [ -w "$OPTION_COMPLETION_SCRIPT_INSTALL_PATH" ]
 	then
 		printf-error 'permission denied'
 		return 1
 	fi
 
-	printf '%s\n' "$BASH_COMPLETION_SCRIPT" > "$bash_completion_dir/$SCRIPT_NAME"
+	printf '%s\n' "$BASH_COMPLETION_SCRIPT" > "$OPTION_COMPLETION_SCRIPT_INSTALL_PATH/$SCRIPT_NAME"
 	printf-message 'please restart shell'
 }
 
@@ -1689,6 +1681,11 @@ parse-option()
 
 		split-branch-names)
 			OPTION_SPLIT_BRANCH_NAMES=''
+			;;
+
+		path)
+			OPTION_COMPLETION_SCRIPT_INSTALL_PATH="$value"
+			return 1
 			;;
 
 		*)
