@@ -1843,11 +1843,11 @@ parse-parameters()
 	local parameters=("${@:2}")
 
 	case "$job" in
-		show-help|cache-workspace-info|install-completion-script)
+		show-help|cache-workspace-info)
 			FOREACH_ARGUMENTS=("${parameters[@]}")
 			;;
 
-		pick-project-and-perform-action)
+		pick-project-and-perform-action|install-completion-script)
 			parse-parameters-for-project-actions "${parameters[@]}"
 			;;
 	esac
