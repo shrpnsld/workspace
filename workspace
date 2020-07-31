@@ -202,7 +202,8 @@ CACHE_COMPLETION_SOURCE_PATHS_PATH="$CACHE_DIR_PATH/completion-source-paths"
 CACHE_COMPLETION_PROJECT_NAMES_PATH="$CACHE_DIR_PATH/completion-project-names"
 
 
-STANDARD_ACTIONS=(status list open '<empty>')
+STANDARD_ACTIONS=(status list open)
+STANDARD_ACTION_NAMES=(${STANDARD_ACTIONS[@]} '<empty>')
 STANDARD_ACTIONS_DESCRIPTIONS=('show git status for projects' 'list projects' 'open projects in shell (default), terminal tabs or tmux panels' '(no action name) run command for each project')
 ADDITIONAL_ACTIONS=(cache-workspace-info install-completion-script)
 
@@ -1130,7 +1131,7 @@ foreach-project()
 
 show-help()
 {
-	max-string-length "${STANDARD_ACTIONS[@]}" "${CUSTOM_ACTIONS[@]}"
+	max-string-length "${STANDARD_ACTION_NAMES[@]}" "${CUSTOM_ACTIONS[@]}"
 	local action_field_length=$(( $? + 2 ))
 
 	local custom_action_help=''
@@ -1155,9 +1156,9 @@ show-help()
 	done
 
 	local standard_action_help=''
-	for (( index = 0; index < ${#STANDARD_ACTIONS[@]}; ++index ))
+	for (( index = 0; index < ${#STANDARD_ACTION_NAMES[@]}; ++index ))
 	do
-		local action="${STANDARD_ACTIONS[$index]}"
+		local action="${STANDARD_ACTION_NAMES[$index]}"
 		if array-contains "$action" "${CUSTOM_ACTIONS[@]}"
 		then
 			continue
