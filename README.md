@@ -131,6 +131,7 @@ $ workspace open -I -p engine
 
 * `--abort-open-with <0..127>` – abort 'open' action with exit status [default: 66]
 * `--progress-bar` – show progress bar while searching projects
+* `--clear-screen` – clear screen before printing main output
 * `--no-progress-bar` – do not show progress bar while searching projects
 * `--print-message <command>` – print message with command
 * `--print-interaction <command>` – print interactions with command

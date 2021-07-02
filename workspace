@@ -50,6 +50,12 @@ OPTION_COMPLETION_SCRIPT_INSTALL_PATH='/etc/bash_completion.d/'
 #
 # Shell utils
 
+clear-screen()
+{
+	"$CLEAR_SCREEN_FUNCTION"
+}
+
+
 printf-message()
 {
 	${PRINT_MESSAGE_BACKEND[@]} "$@"
@@ -227,6 +233,7 @@ PRINT_ERROR_BACKEND=(printf-error-default)
 DO_JOB_FUNCTION=nothing
 PERFORM_ACTION_FUNCTION=''
 ABORT_OPEN_ACTION_EXIT_STATUS=66
+CLEAR_SCREEN_FUNCTION=nothing
 
 
 #
@@ -893,6 +900,7 @@ $standard_action_help$custom_action_help
 \e[1mADDITIONAL OPTIONS\e[0m
   --abort-open-with <0..127>        Abort 'open' action with exit status [default: 66].
   --progress-bar                    Show progress bar.
+  --clear-screen                    Clear screen before printing main output.
   --no-progress-bar                 Do not show progress bar.
   --print-message <command>         Print message with command.
   --print-interaction <command>     Print interactions with command.
@@ -1546,6 +1554,10 @@ parse-option()
 			PROGRESS_FUNCTION=nothing
 			;;
 
+		clear-screen)
+			CLEAR_SCREEN_FUNCTION=clear
+			;;
+
 		colored-output)
 			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_BEGIN="$TEXT_STYLE_PROJECT_HEADER"
 			OPTIONAL_OUTPUT_PROJECT_HEADER_STYLE_END="$TEXT_STYLE_NORMAL"
@@ -2055,5 +2067,6 @@ fi
 #
 # Main
 
+clear-screen
 do-job
 
