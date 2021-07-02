@@ -1808,6 +1808,7 @@ parse-parameters-for-project-actions()
 
 						*)
 							(( parameter_index += retval ))
+							: # so the result of arithmetic above does not considered as a result of case-clause execution
 							;;
 					esac
 				done
@@ -1827,6 +1828,7 @@ parse-parameters-for-project-actions()
 
 					*)
 						(( parameter_index += retval ))
+						: # so the result of arithmetic above does not considered as a result of case-clause execution
 						;;
 				esac
 				continue

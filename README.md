@@ -137,16 +137,16 @@ $ workspace open -I -p engine
 * `--print-interaction <command>` – print interactions with command
 * `--print-warrning <command>` – print warning with command
 * `--print-error <command>` – print message with command
-* `--colored-output` – use colored output.
-* `--colored-interactions` – use colored output for interactions.
-* `--colored-warnings` – use colored output for warnings.
-* `--colored-errors` – use colored output for errors.
-* `--colored-everything` – use colored output for everything.
-* `--no-colored-output` – do not use colored output.
-* `--no-colored-interactions` – do not use colored output for interactions.
-* `--no-colored-warnings` – do not use colored output for warnings.
-* `--no-colored-errors` – do not use colored output for errors.
-* `--no-colored-anything` – do not use colored output for anything.
+* `--colored-output` – use colored output
+* `--colored-interactions` – use colored output for interactions
+* `--colored-warnings` – use colored output for warnings
+* `--colored-errors` – use colored output for errors
+* `--colored-everything` – use colored output for everything
+* `--no-colored-output` – do not use colored output
+* `--no-colored-interactions` – do not use colored output for interactions
+* `--no-colored-warnings` – do not use colored output for warnings
+* `--no-colored-errors` – do not use colored output for errors
+* `--no-colored-anything` – do not use colored output for anything
 
 #
 
