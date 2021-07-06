@@ -5,7 +5,6 @@
 
 SCRIPT_NAME=$(basename $0)
 
-
 TEXT_STYLE_NORMAL='\e[0m'
 TEXT_STYLE_PROJECT_HEADER='\e[1;4m'
 TEXT_STYLE_PROJECT_NAME='\e[1m'
@@ -37,7 +36,7 @@ OPTIONAL_WARNING_STYLE_END=''
 OPTIONAL_ERROR_STYLE_BEGIN=''
 OPTIONAL_ERROR_STYLE_END=''
 
-PROGRESS_FUNCTION=nothing
+PROGRESS_FUNCTION=:
 
 OPTION_NEGATE_NEXT_PREDICATE=''
 OPTION_STRICT_NEXT_PATTERN=false
@@ -206,14 +205,11 @@ CACHE_PROJECT_PATHS_PATH="$CACHE_DIR_PATH/project-paths"
 CACHE_COMPLETION_SOURCE_PATHS_PATH="$CACHE_DIR_PATH/completion-source-paths"
 CACHE_COMPLETION_PROJECT_NAMES_PATH="$CACHE_DIR_PATH/completion-project-names"
 
-
 STANDARD_ACTIONS=(status list open)
 STANDARD_ACTION_NAMES=(${STANDARD_ACTIONS[@]} '<empty>')
 STANDARD_ACTIONS_DESCRIPTIONS=('show git status for projects' 'list projects' 'open projects in shell (default), terminal tabs or tmux panels' '(no action name) run command for each project')
 ADDITIONAL_ACTIONS=(cache-workspace-info install-completion-script)
-
 ALL_ACTIONS=("${STANDARD_ACTIONS[@]}" "${ADDITIONAL_ACTIONS[@]}")
-
 
 CUSTOM_ACTIONS=()
 CUSTOM_ACTIONS_OPTIONS=()
@@ -222,7 +218,7 @@ CUSTOM_ACTIONS_DESCRIPTIONS=()
 
 PREDICATES=()
 
-PROMPT_TO_USE_REPOSITORY_FUNCTION=nothing
+PROMPT_TO_USE_REPOSITORY_FUNCTION=:
 DEAL_WITH_FAILED_COMMAND_FUNCTION=deal-with-failed-command-manually
 OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-shell
 FOREACH_ARGUMENTS=()
@@ -230,10 +226,10 @@ PRINT_MESSAGE_BACKEND=(printf-message-default)
 PRINT_INTERACTION_BACKEND=(printf-interaction-default)
 PRINT_WARNING_BACKEND=(printf-warning-default)
 PRINT_ERROR_BACKEND=(printf-error-default)
-DO_JOB_FUNCTION=nothing
+DO_JOB_FUNCTION=:
 PERFORM_ACTION_FUNCTION=''
 ABORT_OPEN_ACTION_EXIT_STATUS=66
-CLEAR_SCREEN_FUNCTION=nothing
+CLEAR_SCREEN_FUNCTION=:
 
 
 #
@@ -313,12 +309,6 @@ run-predicates()
 
 #
 # Stuff
-
-nothing()
-{
-	:
-}
-
 
 command-exists()
 {
@@ -800,7 +790,7 @@ foreach-project()
 	local path
 	for path in "${repository_paths[@]}"
 	do
-		if [ "$PROMPT_TO_USE_REPOSITORY_FUNCTION" != 'nothing' ]
+		if [ "$PROMPT_TO_USE_REPOSITORY_FUNCTION" != ':' ]
 		then
 			if ! prompt-user-to-select-project "$path" 'Run your command with this repository? (y/n) '
 			then
@@ -1517,7 +1507,7 @@ parse-option()
 					;;
 
 				$TERMINAL_APPLICATION_UNKNOWN)
-					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=nothing
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=:
 					;;
 			esac
 			;;
@@ -1543,7 +1533,7 @@ parse-option()
 			;;
 
 		g|ignore-failed)
-			DEAL_WITH_FAILED_COMMAND_FUNCTION=nothing
+			DEAL_WITH_FAILED_COMMAND_FUNCTION=:
 			;;
 
 		progress-bar)
@@ -1551,7 +1541,7 @@ parse-option()
 			;;
 
 		no-progress-bar)
-			PROGRESS_FUNCTION=nothing
+			PROGRESS_FUNCTION=:
 			;;
 
 		clear-screen)
@@ -1884,13 +1874,13 @@ validate-options()
 				return 1
 			fi
 
-			if [ "$PROMPT_TO_USE_REPOSITORY_FUNCTION" != 'nothing' ]
+			if [ "$PROMPT_TO_USE_REPOSITORY_FUNCTION" != ':' ]
 			then
 				printf-error '"-i" ("--interactive") should be used with "open", "foreach" or "git" action'
 				return 1
 			fi
 
-			if [ "$DEAL_WITH_FAILED_COMMAND_FUNCTION" == 'nothing' ]
+			if [ "$DEAL_WITH_FAILED_COMMAND_FUNCTION" == ':' ]
 			then
 				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" action'
 				return 1
@@ -1898,7 +1888,7 @@ validate-options()
 			;;
 
 		open-projects)
-			if [ "$DEAL_WITH_FAILED_COMMAND_FUNCTION" == 'nothing' ]
+			if [ "$DEAL_WITH_FAILED_COMMAND_FUNCTION" == ':' ]
 			then
 				printf-error '"-g" ("--ignore-failed") should be used with "foreach" or "git" action'
 				return 1
@@ -1942,7 +1932,7 @@ validate-options()
 		return 1
 	fi
 
-	if [ "$OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION" == 'nothing' ]
+	if [ "$OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION" == ':' ]
 	then
 		printf-error 'failed to detect terminal application, or terminal is not supported. Try to specify terminal explicitly with -A, -G, -I, -X'
 		return 1
