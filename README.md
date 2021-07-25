@@ -127,6 +127,7 @@ $ workspace open -p engine -O
 
 * `-h`, `--help` – show help message
 
+#
 
 ### Additional actions
 
@@ -137,6 +138,8 @@ $ workspace open -p engine -O
  	* `--split-branch-names` – split branch names into tokens.
 
 * `cache-workspace-info` – update project paths cache
+
+#
 
 ### Notes
 
