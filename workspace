@@ -773,11 +773,11 @@ continue-tmux()
 		fi
 	done
 
-	tmux new-window -c "${selected_paths[0]}"
+	tmux new-window -c "$WORKSPACE_PATH/${selected_paths[0]}"
 
 	for path in "${selected_paths[@]:1}"
 	do
-		tmux split-window -v -p 50 -c "${path}"
+		tmux split-window -v -p 50 -c "$WORKSPACE_PATH/$path"
 		tmux select-layout tiled
 	done
 }
