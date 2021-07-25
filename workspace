@@ -109,7 +109,7 @@ printf-error-default()
 }
 
 
-TERMINAL_APPLICATION_APPLE=1
+TERMINAL_APPLICATION_MACOS=1
 TERMINAL_APPLICATION_ITERM=2
 TERMINAL_APPLICATION_GNOME=3
 TERMINAL_APPLICATION_TMUX=4
@@ -129,7 +129,7 @@ current-terminal-application()
 		local parent_name=$(ps -p $parent_pid -o comm= )
 		case "$parent_name" in
 			*Terminal.app/Contents/MacOS/Terminal)
-				return $TERMINAL_APPLICATION_APPLE
+				return $TERMINAL_APPLICATION_MACOS
 				;;
 
 			*iTerm.app/Contents/MacOS/iTerm2)
@@ -591,7 +591,7 @@ prompt-user-to-select-project-implementation()
 
 	repository-status-pretty "$project_path"
 	printf '\n'
-	prompt-yes-no printf-interaction "$prompt"
+	prompt-yes-no printf-interaction "$prompt "
 }
 
 
@@ -681,7 +681,7 @@ start-gnome-terminal()
 }
 
 
-start-apple-terminal()
+start-macos-terminal()
 {
 	local project_paths=("$@")
 
@@ -879,33 +879,33 @@ $standard_action_help$custom_action_help
 
 \e[1mOPTIONS\e[0m
   -W | --workspace-path <path>      Search path [default: current directory].
-  -O | --tabs                       Open projects in current terminal tabs/panels.
-  -A | --apple-terminal             Open projects in Apple terminal tabs.
+  -O | --tabs                       Open projects in current terminal tabs/panels (macOS, Gnome, iTerm2, tmux).
+  -M | --macos-terminal             Open projects in macOS terminal tabs.
   -G | --gnome-terminal             Open projects in Gnome terminal tabs.
   -I | --iterm                      Open projects in iTerm tabs.
   -X | --tmux                       Open projects in tmux panels.
-  -i | --interactive                Chose projects to do your stuff with.
-  -g | --ignore-failed              Do not prompt to deal with error for failed commands in 'git' and 'foreach'.
+  -i | --interactive                Ask to execute action for every matched project.
+  -g | --ignore-failed              Do not prompt to deal with the error for failed commands in 'foreach' action.
 
 \e[1mADDITIONAL OPTIONS\e[0m
-  --abort-open-with <0..127>        Abort 'open' action with exit status [default: 66].
-  --progress-bar                    Show progress bar.
   --clear-screen                    Clear screen before printing main output.
+  --progress-bar                    Show progress bar.
   --no-progress-bar                 Do not show progress bar.
+  --abort-open-with <0..127>        Abort 'open' action with exit status [default: 66].
   --print-message <command>         Print message with command.
   --print-interaction <command>     Print interactions with command.
   --print-warrning <command>        Print warning with command.
   --print-error <command>           Print message with command.
-  --colored-output                  Use colored output.
-  --colored-interactions            Use colored output for interactions.
-  --colored-warnings                Use colored output for warnings.
-  --colored-errors                  Use colored output for errors.
-  --colored-everything              Use colored output for everything.
-  --no-colored-output               Do not use colored output.
-  --no-colored-interactions         Do not use colored output for interactions.
-  --no-colored-warnings             Do not use colored output for warnings.
-  --no-colored-errors               Do not use colored output for errors.
-  --no-colored-anything             Do not use colored output for anything.
+  --colored-output                  Color output.
+  --colored-interactions            Color interactions.
+  --colored-warnings                Color warnings.
+  --colored-errors                  Color errors.
+  --colored-everything              Color everything.
+  --no-colored-output               Do not color output.
+  --no-colored-interactions         Do not color interactions.
+  --no-colored-warnings             Do not color warnings.
+  --no-colored-errors               Do not color errors.
+  --no-colored-anything             Do not color anything.
 
   -h | --help                       Show this message.
 
@@ -918,7 +918,6 @@ $standard_action_help$custom_action_help
   cache-workspace-info       Update project paths cache.
 
 \e[1mMore information at \e[mhttps://github.com/shrpnsld/workspace\e[0m
-
 "
 }
 
@@ -1490,8 +1489,8 @@ parse-option()
 		O|tabs)
 			current-terminal-application
 			case $? in
-				$TERMINAL_APPLICATION_APPLE)
-					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
+				$TERMINAL_APPLICATION_MACOS)
+					OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-macos-terminal
 					;;
 
 				$TERMINAL_APPLICATION_ITERM)
@@ -1512,8 +1511,8 @@ parse-option()
 			esac
 			;;
 
-		A|apple-terminal)
-			OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-apple-terminal
+		M|macos-terminal)
+			OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION=start-macos-terminal
 			;;
 
 		G|gnome-terminal)
@@ -1868,9 +1867,9 @@ validate-options()
 {
 	case "$PERFORM_ACTION_FUNCTION" in
 		show-repositories-status|list-repositories)
-			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-apple-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
+			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-macos-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
 			then
-				printf-error '"-O", "--tabs", "-A", "--apple-terminal", "-G", "--gnome-terminal", "-I" or "--iterm" should be used with "open" action'
+				printf-error '"-O", "--tabs", "-M", "--macos-terminal", "-G", "--gnome-terminal", "-I" or "--iterm" should be used with "open" action'
 				return 1
 			fi
 
@@ -1896,9 +1895,9 @@ validate-options()
 			;;
 
 		foreach-project)
-			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-apple-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
+			if array-contains $OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION 'start-macos-terminal' 'start-gnome-terminal' 'start-iterm' 'start-tmux' 'continue-tmux'
 			then
-				printf-error '"-O", "--tabs", "-A", "--apple-terminal", "-G", "--gnome-terminal", "-I" or "--iterm" should be used with "open" action'
+				printf-error '"-O", "--tabs", "-M", "--macos-terminal", "-G", "--gnome-terminal", "-I" or "--iterm" should be used with "open" action'
 				return 1
 			fi
 
@@ -1934,7 +1933,7 @@ validate-options()
 
 	if [ "$OPEN_REPOSITORIES_IN_TERMINAL_FUNCTION" == ':' ]
 	then
-		printf-error 'failed to detect terminal application, or terminal is not supported. Try to specify terminal explicitly with -A, -G, -I, -X'
+		printf-error 'failed to detect terminal application, or terminal is not supported. Try to specify terminal explicitly with -M, -G, -I, -X'
 		return 1
 	fi
 }

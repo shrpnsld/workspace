@@ -9,65 +9,29 @@ By batching commands for filtered repositories, this script allows to avoid usin
 # Examples
 
 ```bash
-$ # Show git status for all repositories
-$ # that have 'feature' in their current branch name (-B)
-$ workspace status -B feature
-```
-
-```bash
-$ # Show diff in every project with uncommited changes (-u)
-$ workspace -u -- git diff
+$ # For each project with uncommited changes (-u) run 'git status'
+$ workspace status -u
 $
-$ # Ask (-i) to stash changes
-$ # in every project with uncommited changes (-u)
-$ workspace -i -u -- git stash
+$ # For each project with uncommited changes (-u)
+$ # create branch 'feature/nice-69' and commit changes
+$ workspace -u -- git checkout -b feature/nice-69 '&&' git commit -a
 ```
 
 ```bash
-$ # In every project that has branch 'master' (-s -b)
-$ # checkout branch 'master' and pull changes
+$ # For each project with branch 'feature/nice-69' (-s -b)
+$ # merge latest changes in 'master' into 'feature/nice-69'
 $ workspace -s -b master -- \
-$     git checkout master '&&' git pull
-$
-$ # and then...
-$ # In every project that has branch 'feature/some' (-s -b)
-$ # checkout branch 'feature/some' and merge it with branch 'master'
-$ workspace -s -b feature/some -- \
-$     git checkout feature/some '&&' git merge master
+$     git checkout master '&&' git pull \
+$     '&&' git checkout feature/nice-69 '&&' git merge master
 ```
-
 ```bash
-$ # Open in bash every project that has 'engine' in its name (-p)
-$ workspace open -p engine
+$ # You can also type string pattern without options (just to save keystrokes),
+$ # and the script will match it with both project name and branch name
+$ workspace 69 -- git push
 ```
-
 ```bash
-$ # You can also type pattern with no additional options (just to save keystrokes),
-$ # and script will match your pattern with both project names and branch names
-$ workspace -- feature/some -- git push
-$ workspace open engine
-```
-
----
-
-But, if you don't want to dive deep into yet another utility, just copy-paste (and adjust to your flavour) the following commands to recover your working session
-
-```bash
-$ # Ask (-i) to open in Gnome Terminal tabs (-A)
-$ # every project that has 'feature' in its current branch name (-B)
-$ workspace open -A -i -B feature
-$
-$ # Same, but in tmux panels (-X)
-$ workspace open -X -i -B feature
-```
-
-```bash
-$ # Open in Gnome Terminal tabs (-G)
-$ # projects that have 'engine' in their current project name (-p)
-$ workspace open -O -p engine
-$
-$ # Same, but in iTerm tabs (-I)
-$ workspace open -I -p engine
+$ # For each project with 'engine' in its name (-p) open terminal tab or tmux panel (-O)
+$ workspace open -p engine -O
 ```
 
 # Features
@@ -109,46 +73,57 @@ $ workspace open -I -p engine
 * `-P`, `--predicate <command>` – use shell command as a predicate and its return value as a result
 * `-N`, `--has-output <command>` – use shell command as a predicate and availability of its output as a result
 * `-u`, `--uncommited` – match projects with uncommited changes
-* `-U`, `--untracked` – match projects untracked files
+* `-U`, `--untracked` – match projects with untracked files
 * `-d`, `--detached` – match projects with detached HEAD
-* `-D`, `--detached-only` – match projects with only detached HEAD
+* `-D`, `--detached-only` – match only projects with detached HEAD
 
 
 ### Options
 
 * `-W`, `--workspace-path <path>` – search path [default: current directory]
-* `-O`, `--tabs` – open projects in current terminal tabs/panels (Apple terminal, Gnome terminal, iTerm, tmux)
-* `-A`, `--apple-terminal` – open projects in macOS terminal tabs
+* `-O`, `--tabs` – open projects in current terminal tabs/panels (macOS terminal, Gnome terminal, iTerm, tmux)
+* `-M`, `--macos-terminal` – open projects in macOS terminal tabs
 * `-G`, `--gnome-terminal` – open projects in Gnome terminal tabs
-* `-I`, `--iterm` – open projects in iTerm tabs
+* `-I`, `--iterm` – open projects in iTerm2 tabs
 * `-X`, `--tmux` – open projects in tmux panels
-* `-i`, `--interactive` – ask to do your stuff with every matched project
-* `-g`, `--ignore-failed` – do not prompt to deal with error for failed commands in 'for each'
+* `-i`, `--interactive` – ask to execute action for every matched project
+* `-g`, `--ignore-failed` – do not prompt to deal with the error for failed commands in 'for each' action
 
 #
 
 ### Additional Options
 
-* `--abort-open-with <0..127>` – abort 'open' action with exit status [default: 66]
-* `--progress-bar` – show progress bar while searching projects
-* `--clear-screen` – clear screen before printing main output
-* `--no-progress-bar` – do not show progress bar while searching projects
-* `--print-message <command>` – print message with command
-* `--print-interaction <command>` – print interactions with command
-* `--print-warrning <command>` – print warning with command
-* `--print-error <command>` – print message with command
-* `--colored-output` – use colored output
-* `--colored-interactions` – use colored output for interactions
-* `--colored-warnings` – use colored output for warnings
-* `--colored-errors` – use colored output for errors
-* `--colored-everything` – use colored output for everything
-* `--no-colored-output` – do not use colored output
-* `--no-colored-interactions` – do not use colored output for interactions
-* `--no-colored-warnings` – do not use colored output for warnings
-* `--no-colored-errors` – do not use colored output for errors
-* `--no-colored-anything` – do not use colored output for anything
+####
 
-#
+* `--clear-screen` – clear screen before printing main output
+* `--progress-bar` – show progress bar while searching projects
+* `--no-progress-bar` – do not show progress bar while searching projects
+* `--abort-open-with <0..127>` – abort 'open' action with exit status [default: 66]
+
+####
+
+* `--print-message <command>` – print message with specified command
+* `--print-interaction <command>` – print interactions with specified command
+* `--print-warrning <command>` – print warning with specified command
+* `--print-error <command>` – print message with specified command
+
+####
+
+* `--colored-output` – color output
+* `--colored-interactions` – color interactions
+* `--colored-warnings` – color warnings
+* `--colored-errors` – color errors
+* `--colored-everything` – all of the above
+
+####
+
+* `--no-colored-output` – do not color output
+* `--no-colored-interactions` – do not color interactions
+* `--no-colored-warnings` – do not color warnings
+* `--no-colored-errors` – do not color errors
+* `--no-colored-anything` – all of the above
+
+####
 
 * `-h`, `--help` – show help message
 
@@ -159,7 +134,7 @@ $ workspace open -I -p engine
 
 	* `--path` – path with shell completion scripts. Optional. Default: `/etc/bash_completion.d/`
 	* `--split-project-names` – split project names into tokens.
- 	* `--split-project-names` – split branch names into tokens.
+ 	* `--split-branch-names` – split branch names into tokens.
 
 * `cache-workspace-info` – update project paths cache
 
@@ -167,7 +142,7 @@ $ workspace open -I -p engine
 
 Project name is considered to be the name of the folder that is parent to `.git` folder.
 
-If no `-s` or `-S` option is set, then `<pattern>` is searched as a part of a project/branch name.
+If no `-s` or `-S` option is set, then `<pattern>` is searched as a substring of a project/branch name.
 
 Use quotes for `|`, `;`, `&&` and `||` inside `<commands>` for `for each`.
 
@@ -237,10 +212,10 @@ The syntax for defining custom action is the following:
 where
 
 * `<name>` – name of the action
-* `<options>` – options for workspace script
+* `<options>` – workspace script options
 * `--` – mandatory delimiter
 * `<command>` – command to be executed
-* `<arguments>` – arguments for `<command>`
+* `<arguments>` – arguments for the `<command>`
 * `# <description>` – will be shown in the help message (if not specified, then `<command>`, `<options>` and `<arguments>` will be printed)
 
 ### Example:
@@ -269,7 +244,7 @@ How it looks in the help message
 $ workspace --help
 USAGE
   workspace <action> [<options>...]
-  
+
 ACTIONS
   ...
   commit    $ workspace -u [<...>] -- git commit -a [<...>]
