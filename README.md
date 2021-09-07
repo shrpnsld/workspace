@@ -20,7 +20,7 @@ $ workspace -u -- git checkout -b feature/nice-69 '&&' git commit -a
 ```bash
 $ # For each project with branch 'feature/nice-69' (-s -b)
 $ # merge latest changes in 'master' into 'feature/nice-69'
-$ workspace -s -b master -- \
+$ workspace -s -b feature/nice-69 -- \
 $     git checkout master '&&' git pull \
 $     '&&' git checkout feature/nice-69 '&&' git merge master
 ```
